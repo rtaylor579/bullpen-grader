@@ -14,16 +14,25 @@ st.markdown(
 
 st.title("🔥 Braves Bullpen Grader")
 
+# Upload CSV
 uploaded_file = st.file_uploader("Upload your bullpen CSV", type=["csv"])
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.write("### Raw Data Preview", df.head())
+    st.write("### 🧾 Raw Data Preview", df.head())
+
+    # Pitcher summary
+    pitcher_summary = df["Pitcher"].value_counts().reset_index()
+    pitcher_summary.columns = ["Pitcher", "Total Pitches"]
+    pitcher_summary["Total Score"] = ""  # Placeholder for now
+
+    st.write("### 💡 Pitcher Summary")
+    st.dataframe(pitcher_summary)
+
+    # Count Designation Section
+    st.write("### 🎯 Count Designation")
 
     pitchers = df["Pitcher"].unique()
-    st.write("### Pitcher Count Designations")
-
-    # Build form for count designation
     attack_counts = set()
     finish_counts = set()
 
@@ -32,26 +41,22 @@ if uploaded_file is not None:
             st.markdown(f"**{pitcher}**")
             col1, col2 = st.columns(2)
             with col1:
-                if st.checkbox(f"Attack Count: {pitcher}", key=f"attack_{pitcher}"):
+                if st.checkbox(f"Attack Count", key=f"attack_{pitcher}"):
                     attack_counts.add(pitcher)
             with col2:
-                if st.checkbox(f"Finish Count: {pitcher}", key=f"finish_{pitcher}"):
+                if st.checkbox(f"Finish Count", key=f"finish_{pitcher}"):
                     finish_counts.add(pitcher)
 
         submitted = st.form_submit_button("Submit Count Designations")
 
     if submitted:
-        st.success("Count designations submitted!")
+        st.success("✅ Count designations submitted!")
         st.write("### 🧠 Grading with Designations")
 
-        # Call your grading logic function here and pass in:
-        # - df (pitch data)
-        # - attack_counts (set of pitcher names)
-        # - finish_counts (set of pitcher names)
+        # Replace this with your custom scoring logic
+        st.info(f"Attack Pitchers: {', '.join(attack_counts) if attack_counts else 'None'}")
+        st.info(f"Finish Pitchers: {', '.join(finish_counts) if finish_counts else 'None'}")
 
-        # Placeholder for your scoring logic
-        st.info(f"Attack Pitchers: {attack_counts}")
-        st.info(f"Finish Pitchers: {finish_counts}")
-
-        # Your final grades could be displayed below this line
-
+        # If you have a grading function, call it here like:
+        # scores = grade_bullpen(df, attack_counts, finish_counts)
+        # st.dataframe(scores)
