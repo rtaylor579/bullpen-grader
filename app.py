@@ -134,20 +134,24 @@ if uploaded_file:
         else:
             return "F"
 
-    max_possible = df_filtered.groupby('Pitcher')['IsFinish'].apply(
-        lambda x: (x.sum() + x.count())  # max score: in-zone+buffer+finish = 3
-    ).reset_index(name="MaxPossible")
+    max_possible = df_filtered.groupby('Pitcher').apply(
+        lambda x: sum((x['IsFastball'] & (x['PlateLocHeightInches'] > ZONE_TOP) & (x['PlateLocHeightInches'] <= FB_BUFFER_TOP)) |
+                      (~x['IsFastball'] & (x['PlateLocHeightInches'] < ZONE_BOTTOM) & (x['PlateLocHeightInches'] >= NFB_BUFFER_BOTTOM)))
+    ).reset_index(name="FinishBufferCount")
 
-    summary = pd.merge(summary, max_possible, on="Pitcher")
+    pitch_counts = df_filtered.groupby('Pitcher')['PitchScore'].count().reset_index(name='PitchCount')
+    max_possible['MaxPossible'] = pitch_counts['PitchCount'] + max_possible['FinishBufferCount']
+
+    summary = pd.merge(summary, max_possible[['Pitcher', 'MaxPossible']], on="Pitcher")
     summary['Grade %'] = summary['Total Score'] / summary['MaxPossible']
     summary['Grade'] = summary['Grade %'].apply(assign_grade)
 
-    st.subheader("🧢 Pitcher Summary & Grades")
+    st.subheader("🧒‍♂️ Pitcher Summary & Grades")
     st.dataframe(summary[['Pitcher', 'Total Pitches', 'Total Score', 'Avg Score', 'PPP', 'Grade']])
 
     # Download buttons
-    st.download_button("📥 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
-    st.download_button("📥 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
+    st.download_button("📅 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
+    st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
 
     # Visualization
     st.subheader("🎯 Strike Zone Plot")
@@ -156,13 +160,12 @@ if uploaded_file:
         st.info("Select a specific pitcher to view their strike zone plot.")
     else:
         fig, ax = plt.subplots(figsize=(5, 6))
-        pitch_type_color = "red"  # all fastballs for now; could expand
 
         shapes = {
             0: "X",
             1: "o",
-            2: "o",  # Filled later
-            3: "$",  # '$' for big-time pitches
+            2: "o",
+            3: "$",
             4: "$"
         }
 
@@ -179,7 +182,6 @@ if uploaded_file:
             else:
                 ax.text(row['PlateLocSideInches'], row['PlateLocHeightInches'], shape, color=color, fontsize=10, ha='center', va='center')
 
-        # Draw strike zone
         ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM,
                                    edgecolor='black', fill=False, linewidth=2))
         ax.set_xlim(-10, 10)
@@ -188,4 +190,3 @@ if uploaded_file:
         ax.set_ylabel("Plate Height (in)")
         ax.set_title(f"{selected_pitcher} Strike Zone")
         st.pyplot(fig)
-
