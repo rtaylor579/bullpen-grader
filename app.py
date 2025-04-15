@@ -1,63 +1,84 @@
 import streamlit as st
 import pandas as pd
 
-# Braves theme styling
-st.markdown(
-    """
+# Braves color theme
+PRIMARY_COLOR = "#CE1141"  # Braves red
+SECONDARY_COLOR = "#13274F"  # Braves navy
+BG_COLOR = "#F5F5F5"  # Light background
+
+st.set_page_config(page_title="Bullpen Grader", layout="wide")
+
+st.markdown(f"""
     <style>
-        body { background-color: #002855; color: white; }
-        .stApp { background-color: #002855; }
-        .stButton>button {
-            color: white;
-            background-color: #CE1141;
-        }
+    .main {{
+        background-color: {BG_COLOR};
+    }}
+    .stButton > button {{
+        background-color: {PRIMARY_COLOR};
+        color: white;
+        font-weight: bold;
+    }}
+    .stFileUploader, .stDataFrame {{
+        background-color: white;
+    }}
     </style>
-    """,
-    unsafe_allow_html=True
-)
+""", unsafe_allow_html=True)
 
 st.title(" 🪓 Braves Bullpen Grader")
+st.markdown("Upload your bullpen CSV and get instant grading feedback.")
 
-# Upload CSV
-uploaded_file = st.file_uploader("Upload your bullpen CSV", type=["csv"])
+uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"])
 
-if uploaded_file is not None:
+if uploaded_file:
     df = pd.read_csv(uploaded_file)
-    st.write("### 🧾 Raw Data Preview", df.head())
+    df_filtered = df[['Pitcher', 'TaggedPitchType', 'PlateLocHeight', 'PlateLocSide']].copy()
+    df_filtered['PlateLocHeightInches'] = df_filtered['PlateLocHeight'] * 12
+    df_filtered['PlateLocSideInches'] = df_filtered['PlateLocSide'] * 12
 
-    # Grading Function
+    # Constants for scoring
+    ZONE_BOTTOM = 19.4
+    ZONE_TOP = 38.5
+    FB_BUFFER_TOP = 40.5
+    NFB_BUFFER_BOTTOM = 17.4
+    ZONE_SIDE_LEFT = -8.5
+    ZONE_SIDE_RIGHT = 8.5
+
+    df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].str.contains('Fastball', case=False, na=False)
+
     def score_pitch(row):
-        fb_types = ["4-Seam", "Four-Seam", "Fastball", "4SFB"]
-        is_fb = row["TaggedPitchType"] in fb_types
-        height = row["ZoneLocHeight"]
-        side = abs(row["ZoneLocSide"])
-        score = 0
+        height = row['PlateLocHeightInches']
+        side = row['PlateLocSideInches']
 
-        # Vertical scoring
-        if is_fb:
-            if height >= 0.5:
-                score += 2  # FB in upper half
-            elif 0.485 < height < 0.5:
-                score += 1  # FB in buffer zone
+        if pd.isnull(height) or pd.isnull(side):
+            return 0
+        if not (ZONE_SIDE_LEFT <= side <= ZONE_SIDE_RIGHT):
+            return 0
+
+        if row['IsFastball']:
+            if ZONE_BOTTOM <= height <= ZONE_TOP:
+                return 2 if height > (ZONE_BOTTOM + ZONE_TOP) / 2 else 1
+            elif ZONE_TOP < height <= FB_BUFFER_TOP:
+                return 1
         else:
-            if height <= 0.385:
-                score += 2  # NFB in lower half
-            elif 0.385 < height < 0.405:
-                score += 1  # NFB in buffer zone
+            if ZONE_BOTTOM <= height <= ZONE_TOP:
+                return 2 if height < (ZONE_BOTTOM + ZONE_TOP) / 2 else 1
+            elif NFB_BUFFER_BOTTOM <= height < ZONE_BOTTOM:
+                return 1
+        return 0
 
-        # Horizontal scoring
-        if -0.425 <= row["ZoneLocSide"] <= 0.425:
-            score += 1  # in zone
-        elif -0.5 <= row["ZoneLocSide"] <= 0.5:
-            score += 1  # buffer zone
+    df_filtered['PitchScore'] = df_filtered.apply(score_pitch, axis=1)
 
-        return score
+    # Pitch summary
+    st.subheader("📋 Pitch-Level Results")
+    st.dataframe(df_filtered[['Pitcher', 'TaggedPitchType', 'PlateLocHeightInches', 'PlateLocSideInches', 'PitchScore']])
 
-    # Apply scoring
-    df["Score"] = df.apply(score_pitch, axis=1)
+    # Pitcher summary
+    pitcher_scores = df_filtered.groupby('Pitcher')['PitchScore'].agg(['count', 'sum']).reset_index()
+    pitcher_scores.columns = ['Pitcher', 'Total Pitches', 'Total Score']
 
-    st.write("### 🎯 Graded Pitches")
-    st.dataframe(df[["Pitcher", "TaggedPitchType", "ZoneLocSide", "ZoneLocHeight", "Score"]])
+    st.subheader("🧢 Pitcher Summary")
+    st.dataframe(pitcher_scores)
 
-    total_score = df["Score"].sum()
-    st.markdown(f"## 🧾 Total Bullpen Score: `{total_score}`")
+    # Placeholder for upcoming Count Designation UI
+    st.subheader("⚙️ Count Designation (Coming Next)")
+    st.markdown("Soon you'll be able to tag pitchers as being in Attack or Finish counts for custom scoring adjustments.")
