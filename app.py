@@ -146,7 +146,7 @@ if uploaded_file:
     summary['Grade %'] = summary['Total Score'] / summary['MaxPossible']
     summary['Grade'] = summary['Grade %'].apply(assign_grade)
 
-    st.subheader("🧒‍♂️ Pitcher Summary & Grades")
+    st.subheader("Pitcher Summary & Grades")
     st.dataframe(summary[['Pitcher', 'Total Pitches', 'Total Score', 'Avg Score', 'PPP', 'Grade']])
 
     # Download buttons
@@ -184,8 +184,8 @@ if uploaded_file:
 
         ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM,
                                    edgecolor='black', fill=False, linewidth=2))
-        ax.set_xlim(-10, 10)
-        ax.set_ylim(16, 44)
+        ax.set_xlim(-8.5, 8.5)
+        ax.set_ylim(19.4, 38.5)
         ax.set_xlabel("Plate Side (in)")
         ax.set_ylabel("Plate Height (in)")
         ax.set_title(f"{selected_pitcher} Strike Zone")
