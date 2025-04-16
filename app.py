@@ -2,29 +2,21 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import matplotlib.patches as patches  # Needed for plate outline
-from matplotlib.lines import Line2D  # Needed for custom legend
+import matplotlib.patches as patches
+from matplotlib.lines import Line2D
 
 # Set color palette
-PRIMARY_COLOR = "#CE1141"  # Braves red
-SECONDARY_COLOR = "#13274F"  # Braves navy
+PRIMARY_COLOR = "#CE1141"
+SECONDARY_COLOR = "#13274F"
 BG_COLOR = "#F5F5F5"
 
 st.set_page_config(page_title=" 🪓 Bullpen Grader", layout="wide")
 
 st.markdown(f"""
     <style>
-    .main {{
-        background-color: {BG_COLOR};
-    }}
-    .stButton > button {{
-        background-color: {PRIMARY_COLOR};
-        color: white;
-        font-weight: bold;
-    }}
-    .stFileUploader, .stDataFrame {{
-        background-color: white;
-    }}
+    .main {{ background-color: {BG_COLOR}; }}
+    .stButton > button {{ background-color: {PRIMARY_COLOR}; color: white; font-weight: bold; }}
+    .stFileUploader, .stDataFrame {{ background-color: white; }}
     </style>
 """, unsafe_allow_html=True)
 
@@ -39,46 +31,44 @@ if uploaded_file:
     df_filtered['PlateLocHeightInches'] = df_filtered['PlateLocHeight'] * 12
     df_filtered['PlateLocSideInches'] = df_filtered['PlateLocSide'] * 12
 
-    # Constants for scoring
+    # Constants
     ZONE_BOTTOM = 19.4
     ZONE_TOP = 38.5
     FB_BUFFER_TOP = 40.5
     NFB_BUFFER_BOTTOM = 17.4
     ZONE_SIDE_LEFT = -8.5
     ZONE_SIDE_RIGHT = 8.5
+    ZONE_HEIGHT = ZONE_TOP - ZONE_BOTTOM
+    TOP_THIRD = ZONE_TOP - (ZONE_HEIGHT / 3)
+    BOTTOM_THIRD = ZONE_BOTTOM + (ZONE_HEIGHT / 3)
 
-    # Determine if pitch is a fastball
+    # Classify pitch types
     fastballs = ["Fastball", "Sinker", "Cutter"]
     df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].apply(lambda x: any(fb.lower() in str(x).lower() for fb in fastballs))
-
-    # Use 'Flag' column to determine Finish count pitches
     df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
 
-    # Scoring logic
+    # Scoring
     def score_pitch(row):
         height = row['PlateLocHeightInches']
         side = row['PlateLocSideInches']
         is_fb = row['IsFastball']
         is_finish = row['IsFinish']
 
-        if pd.isnull(height) or pd.isnull(side):
-            return 0
-        if not (ZONE_SIDE_LEFT <= side <= ZONE_SIDE_RIGHT):
-            return 0
+        if pd.isnull(height) or pd.isnull(side): return 0
+        if not (ZONE_SIDE_LEFT <= side <= ZONE_SIDE_RIGHT): return 0
 
         score = 0
-        in_zone = ZONE_BOTTOM <= height <= ZONE_TOP
         buffer_zone = False
 
         if is_fb:
-            if in_zone:
-                score += 2 if height > (ZONE_BOTTOM + ZONE_TOP) / 2 else 1
+            if ZONE_BOTTOM <= height <= ZONE_TOP:
+                score += 2 if height > TOP_THIRD else 1
             elif ZONE_TOP < height <= FB_BUFFER_TOP:
                 score += 1
                 buffer_zone = True
         else:
-            if in_zone:
-                score += 2 if height < (ZONE_BOTTOM + ZONE_TOP) / 2 else 1
+            if ZONE_BOTTOM <= height <= ZONE_TOP:
+                score += 2 if height < BOTTOM_THIRD else 1
             elif NFB_BUFFER_BOTTOM <= height < ZONE_BOTTOM:
                 score += 1
                 buffer_zone = True
@@ -96,21 +86,17 @@ if uploaded_file:
     st.subheader("📊 Pitch-Level Data")
     st.dataframe(view_df[['Pitcher', 'TaggedPitchType', 'PlateLocHeightInches', 'PlateLocSideInches', 'IsFinish', 'PitchScore']])
 
+    # Summary
     summary = df_filtered.groupby('Pitcher')['PitchScore'].agg(['count', 'sum', 'mean']).reset_index()
     summary.columns = ['Pitcher', 'Total Pitches', 'Total Score', 'Avg Score']
     summary['PPP'] = summary['Total Score'] / summary['Total Pitches']
 
     def assign_grade(pct):
-        if pct > 0.8:
-            return "A"
-        elif pct > 0.65:
-            return "B"
-        elif pct > 0.5:
-            return "C"
-        elif pct > 0.35:
-            return "D"
-        else:
-            return "F"
+        if pct > 0.8: return "A"
+        elif pct > 0.65: return "B"
+        elif pct > 0.5: return "C"
+        elif pct > 0.35: return "D"
+        else: return "F"
 
     max_possible = df_filtered.groupby('Pitcher').apply(
         lambda x: sum((x['IsFastball'] & (x['PlateLocHeightInches'] > ZONE_TOP) & (x['PlateLocHeightInches'] <= FB_BUFFER_TOP)) |
@@ -136,34 +122,28 @@ if uploaded_file:
         st.info("Select a specific pitcher to view their strike zone plot.")
     else:
         fig, ax = plt.subplots(figsize=(6, 8))
-
         pitcher_df = view_df.copy()
+
         for _, row in pitcher_df.iterrows():
             x = row['PlateLocSideInches']
             y = row['PlateLocHeightInches']
             color = "red" if row['IsFastball'] else "blue"
             score = row['PitchScore']
+            is_finish = row['IsFinish']
+            in_fb_buffer = row['IsFastball'] and ZONE_TOP < y <= FB_BUFFER_TOP
+            in_nfb_buffer = not row['IsFastball'] and NFB_BUFFER_BOTTOM <= y < ZONE_BOTTOM
 
-            if score == 0:
+            if score >= 3 and is_finish and (in_fb_buffer or in_nfb_buffer):
+                ax.plot(x, y, marker='s', color='green', markersize=14)
+            elif score == 0:
                 ax.text(x, y, "X", color=color, fontsize=14, ha='center', va='center')
             elif score == 1:
                 ax.plot(x, y, marker='o', color=color, markersize=10, markeredgecolor='black', markerfacecolor='none')
             elif score == 2:
                 ax.plot(x, y, marker='o', color=color, markersize=14, markeredgecolor='black')
-            elif score >= 3:
-                ax.text(x, y, "$", color=color, fontsize=16, fontweight='bold', ha='center', va='center')
 
-        ax.add_patch(plt.Rectangle(
-            (ZONE_SIDE_LEFT, ZONE_BOTTOM),
-            ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT,
-            ZONE_TOP - ZONE_BOTTOM,
-            edgecolor='black', fill=False, linewidth=2
-        ))
-
-        ax.add_patch(patches.Rectangle(
-            (-8.5, 20), 17, 17,
-            linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3
-        ))
+        ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM, edgecolor='black', fill=False, linewidth=2))
+        ax.add_patch(patches.Rectangle((-8.5, 20), 17, 17, linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3))
 
         legend_elements = [
             Line2D([0], [0], marker='o', color='red', label='FB: 1 pt (open)', markerfacecolor='none', markeredgecolor='black', markersize=10),
@@ -181,4 +161,11 @@ if uploaded_file:
         ax.set_title(f"{selected_pitcher} Strike Zone")
         ax.grid(True, linestyle='--', alpha=0.3)
         ax.set_facecolor("#f9f9f9")
+
+        total = len(pitcher_df)
+        finish_count = pitcher_df['IsFinish'].sum()
+        avg_score = pitcher_df['PitchScore'].mean().round(2)
+        grade = summary.loc[summary['Pitcher'] == selected_pitcher, 'Grade'].values[0]
+
         st.pyplot(fig)
+        st.markdown(f"**Summary**: {total} Pitches | {finish_count} Finish | Avg Score: {avg_score} | Grade: {grade}")
