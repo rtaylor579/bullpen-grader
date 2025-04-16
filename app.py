@@ -176,7 +176,7 @@ if uploaded_file:
             shape = shapes.get(score, "X")
 
             if shape == "o" and score == 2:
-                ax.plot(row['PlateLocSideInches'], row['PlateLocHeightInches'], marker='o', color=color, markersize=10)
+                ax.plot(row['PlateLocSideInches'], row['PlateLocHeightInches'], marker='o', color=color, markersize=15)
             elif shape == "$":
                 ax.text(row['PlateLocSideInches'], row['PlateLocHeightInches'], "$", color=color, fontsize=12, ha='center', va='center')
             else:
