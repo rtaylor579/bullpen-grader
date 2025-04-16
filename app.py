@@ -186,7 +186,7 @@ if uploaded_file:
         legend_elements = [
             Line2D([0], [0], marker='o', color='red', label='FB: 1 pt (open)', markerfacecolor='none', markeredgecolor='black', markersize=10),
             Line2D([0], [0], marker='o', color='red', label='FB: 2 pts (solid)', markerfacecolor='red', markeredgecolor='black', markersize=14),
-            Line2D([0], [0], marker='$', color='red', label='Finish Buffer Bonus', linestyle='None', markersize=14),
+            Line2D([0], [0], marker='s', color='green', label='Finish Buffer Bonus', linestyle='None', markersize=14),
             Line2D([0], [0], marker='X', color='red', label='FB: 0 pts', linestyle='None', markersize=10),
             Line2D([0], [0], marker='X', color='blue', label='NFB: 0 pts', linestyle='None', markersize=10),
         ]
@@ -200,4 +200,3 @@ if uploaded_file:
         ax.grid(True, linestyle='--', alpha=0.3)
         ax.set_facecolor("#f9f9f9")
         st.pyplot(fig)
-
