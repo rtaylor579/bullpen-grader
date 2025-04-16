@@ -185,8 +185,9 @@ if uploaded_file:
         ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM,
                                    edgecolor='black', fill=False, linewidth=2))
         ax.set_xlim(-10, 10)
-        ax.set_ylim(10, 45)
+        ax.set_ylim(16, 44)
         ax.set_xlabel("Plate Side (in)")
         ax.set_ylabel("Plate Height (in)")
         ax.set_title(f"{selected_pitcher} Strike Zone")
+        ax.grid(True, linestyle='--', alpha=0.5)
         st.pyplot(fig)
