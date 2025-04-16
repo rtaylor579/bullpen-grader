@@ -29,13 +29,13 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.title("🪓 Braves Bullpen Grader")
-st.markdown("Upload your bullpen CSV and manually tag 'Finish' pitches for upgraded grading and feedback.")
+st.markdown("Upload your bullpen CSV to grade and visualize pitch effectiveness. Finish pitches are detected from the 'Flag' column.")
 
 uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"])
 
 if uploaded_file:
     df = pd.read_csv(uploaded_file)
-    df_filtered = df[['Pitcher', 'TaggedPitchType', 'PlateLocHeight', 'PlateLocSide']].copy()
+    df_filtered = df[['Pitcher', 'TaggedPitchType', 'PlateLocHeight', 'PlateLocSide', 'Flag']].copy()
     df_filtered['PlateLocHeightInches'] = df_filtered['PlateLocHeight'] * 12
     df_filtered['PlateLocSideInches'] = df_filtered['PlateLocSide'] * 12
 
@@ -51,26 +51,8 @@ if uploaded_file:
     fastballs = ["Fastball", "Sinker", "Cutter"]
     df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].apply(lambda x: any(fb.lower() in str(x).lower() for fb in fastballs))
 
-    # Initialize session state for Finish checkboxes
-    if 'finish_flags' not in st.session_state or len(st.session_state.finish_flags) != len(df_filtered):
-        st.session_state.finish_flags = [False] * len(df_filtered)
-
-    # Interactive finish tagging
-    st.subheader("📋 Pitch-Level Finish Tagging")
-    for i in range(len(df_filtered)):
-        col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
-        with col1:
-            st.text(df_filtered.loc[i, 'Pitcher'])
-        with col2:
-            st.text(df_filtered.loc[i, 'TaggedPitchType'])
-        with col3:
-            st.text(f"H: {df_filtered.loc[i, 'PlateLocHeightInches']:.1f}")
-        with col4:
-            st.text(f"S: {df_filtered.loc[i, 'PlateLocSideInches']:.1f}")
-        with col5:
-            st.session_state.finish_flags[i] = st.checkbox("Finish", value=st.session_state.finish_flags[i], key=f"finish_{i}")
-
-    df_filtered['IsFinish'] = st.session_state.finish_flags
+    # Use 'Flag' column to determine Finish count pitches
+    df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
 
     # Scoring logic
     def score_pitch(row):
