@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib.patches as patches  # Needed for plate outline
+from matplotlib.lines import Line2D  # Needed for custom legend
 
 # Set color palette
 PRIMARY_COLOR = "#CE1141"  # Braves red
@@ -99,25 +101,19 @@ if uploaded_file:
                 score += 1
                 buffer_zone = True
 
-        # Apply finish multiplier to buffer zone point
         if is_finish and buffer_zone:
-            score += 1  # Add 1 more point for x2 multiplier on buffer zone contribution
+            score += 1
 
         return score
 
     df_filtered['PitchScore'] = df_filtered.apply(score_pitch, axis=1)
 
-    # Pitcher filter
     selected_pitcher = st.selectbox("🎯 Filter pitches by pitcher", ["All"] + sorted(df_filtered['Pitcher'].unique().tolist()))
-    if selected_pitcher != "All":
-        view_df = df_filtered[df_filtered['Pitcher'] == selected_pitcher]
-    else:
-        view_df = df_filtered
+    view_df = df_filtered if selected_pitcher == "All" else df_filtered[df_filtered['Pitcher'] == selected_pitcher]
 
     st.subheader("📊 Pitch-Level Data")
     st.dataframe(view_df[['Pitcher', 'TaggedPitchType', 'PlateLocHeightInches', 'PlateLocSideInches', 'IsFinish', 'PitchScore']])
 
-    # Pitcher Summary
     summary = df_filtered.groupby('Pitcher')['PitchScore'].agg(['count', 'sum', 'mean']).reset_index()
     summary.columns = ['Pitcher', 'Total Pitches', 'Total Score', 'Avg Score']
     summary['PPP'] = summary['Total Score'] / summary['Total Pitches']
@@ -149,45 +145,59 @@ if uploaded_file:
     st.subheader("Pitcher Summary & Grades")
     st.dataframe(summary[['Pitcher', 'Total Pitches', 'Total Score', 'Avg Score', 'PPP', 'Grade']])
 
-    # Download buttons
     st.download_button("📅 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
     st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
 
-    # Visualization
     st.subheader("🎯 Strike Zone Plot")
 
     if selected_pitcher == "All":
         st.info("Select a specific pitcher to view their strike zone plot.")
     else:
-        fig, ax = plt.subplots(figsize=(5, 6))
-
-        shapes = {
-            0: "X",
-            1: "o",
-            2: "o",
-            3: "$",
-            4: "$"
-        }
+        fig, ax = plt.subplots(figsize=(6, 8))
 
         pitcher_df = view_df.copy()
         for _, row in pitcher_df.iterrows():
+            x = row['PlateLocSideInches']
+            y = row['PlateLocHeightInches']
             color = "red" if row['IsFastball'] else "blue"
             score = row['PitchScore']
-            shape = shapes.get(score, "X")
 
-            if shape == "o" and score == 2:
-                ax.plot(row['PlateLocSideInches'], row['PlateLocHeightInches'], marker='o', color=color, markersize=10)
-            elif shape == "$":
-                ax.text(row['PlateLocSideInches'], row['PlateLocHeightInches'], "$", color=color, fontsize=12, ha='center', va='center')
-            else:
-                ax.text(row['PlateLocSideInches'], row['PlateLocHeightInches'], shape, color=color, fontsize=10, ha='center', va='center')
+            if score == 0:
+                ax.text(x, y, "X", color=color, fontsize=14, ha='center', va='center')
+            elif score == 1:
+                ax.plot(x, y, marker='o', color=color, markersize=10, markeredgecolor='black', markerfacecolor='none')
+            elif score == 2:
+                ax.plot(x, y, marker='o', color=color, markersize=14, markeredgecolor='black')
+            elif score >= 3:
+                ax.text(x, y, "$", color=color, fontsize=16, fontweight='bold', ha='center', va='center')
 
-        ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM,
-                                   edgecolor='black', fill=False, linewidth=2))
-        ax.set_xlim(-8.5, 8.5)
-        ax.set_ylim(19.4, 38.5)
+        ax.add_patch(plt.Rectangle(
+            (ZONE_SIDE_LEFT, ZONE_BOTTOM),
+            ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT,
+            ZONE_TOP - ZONE_BOTTOM,
+            edgecolor='black', fill=False, linewidth=2
+        ))
+
+        ax.add_patch(patches.Rectangle(
+            (-8.5, 20), 17, 17,
+            linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3
+        ))
+
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='red', label='FB: 1 pt (open)', markerfacecolor='none', markeredgecolor='black', markersize=10),
+            Line2D([0], [0], marker='o', color='red', label='FB: 2 pts (solid)', markerfacecolor='red', markeredgecolor='black', markersize=14),
+            Line2D([0], [0], marker='$', color='red', label='Finish Buffer Bonus', linestyle='None', markersize=14),
+            Line2D([0], [0], marker='X', color='red', label='FB: 0 pts', linestyle='None', markersize=10),
+            Line2D([0], [0], marker='X', color='blue', label='NFB: 0 pts', linestyle='None', markersize=10),
+        ]
+        ax.legend(handles=legend_elements, loc='upper right', frameon=True)
+
+        ax.set_xlim(-10, 10)
+        ax.set_ylim(18, 42)
         ax.set_xlabel("Plate Side (in)")
         ax.set_ylabel("Plate Height (in)")
         ax.set_title(f"{selected_pitcher} Strike Zone")
-        ax.grid(True, linestyle='--', alpha=0.5)
+        ax.grid(True, linestyle='--', alpha=0.3)
+        ax.set_facecolor("#f9f9f9")
         st.pyplot(fig)
+
