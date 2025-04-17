@@ -5,6 +5,29 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.patches as patches
 from matplotlib.lines import Line2D
+import sqlite3
+from datetime import date
+
+# Connect to (or create) the database and create the table if it doesn't exist
+conn = sqlite3.connect('bullpen_data.db')
+cursor = conn.cursor()
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS pitcher_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pitcher_name TEXT NOT NULL,
+    session_date TEXT NOT NULL,
+    total_pitches INTEGER,
+    finish_pitches INTEGER,
+    avg_score REAL,
+    ppp REAL,
+    grade TEXT
+)
+""")
+
+conn.commit()
+conn.close()
+
 
 # Set color palette
 PRIMARY_COLOR = "#CE1141"
@@ -196,3 +219,25 @@ if uploaded_file:
         )
 
         st.markdown(f"**Summary**: {total} Pitches | {finish_count} Finish | Avg Score: {avg_score} | Grade: {grade}")
+
+        # ✅ Save session results to the database
+        conn = sqlite3.connect('bullpen_data.db')
+        cursor = conn.cursor()
+
+        for _, row in summary.iterrows():
+            cursor.execute("""
+                INSERT INTO pitcher_sessions (pitcher_name, session_date, total_pitches, finish_pitches, avg_score, ppp, grade)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                row['Pitcher'],
+                date.today().isoformat(),  # today's date
+                row['Total Pitches'],
+                view_df['IsFinish'].sum(),  # number of finish pitches (session-based)
+                round(row['Avg Score'], 2),
+                round(row['PPP'], 2),
+                row['Grade']
+            ))
+
+        conn.commit()
+        conn.close()
+
