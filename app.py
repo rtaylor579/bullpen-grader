@@ -5,36 +5,22 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib.patches as patches
 from matplotlib.lines import Line2D
-import sqlite3
+import psycopg2
 from datetime import date
 
-# Connect to (or create) the database and create the table if it doesn't exist
-conn = sqlite3.connect('bullpen_data.db')
-cursor = conn.cursor()
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS pitcher_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pitcher_name TEXT NOT NULL,
-    session_date TEXT NOT NULL,
-    total_pitches INTEGER,
-    finish_pitches INTEGER,
-    avg_score REAL,
-    ppp REAL,
-    grade TEXT
-)
-""")
-
-conn.commit()
-conn.close()
-
+# Database connection settings
+DB_HOST = "db.rmdfrysjyzzmkjsxjchy.supabase.co"
+DB_NAME = "postgres"
+DB_USER = "postgres"
+DB_PASSWORD = "-3.1VAAIZ!"
+DB_PORT = "5432"  # Supabase default port
 
 # Set color palette
 PRIMARY_COLOR = "#CE1141"
 SECONDARY_COLOR = "#13274F"
 BG_COLOR = "#F5F5F5"
 
-st.set_page_config(page_title=" 🪓 Bullpen Grader", layout="wide")
+st.set_page_config(page_title="🪓 Bullpen Grader", layout="wide")
 
 st.markdown(f"""
     <style>
@@ -199,11 +185,6 @@ if uploaded_file:
         ax.grid(True, linestyle='--', alpha=0.3)
         ax.set_facecolor("#f9f9f9")
 
-        total = len(pitcher_df)
-        finish_count = pitcher_df['IsFinish'].sum()
-        avg_score = pitcher_df['PitchScore'].mean().round(2)
-        grade = summary.loc[summary['Pitcher'] == selected_pitcher, 'Grade'].values[0]
-
         st.pyplot(fig)
 
         # Save PDF of Strike Zone
@@ -218,21 +199,32 @@ if uploaded_file:
             mime="application/pdf"
         )
 
+        total = len(pitcher_df)
+        finish_count = pitcher_df['IsFinish'].sum()
+        avg_score = pitcher_df['PitchScore'].mean().round(2)
+        grade = summary.loc[summary['Pitcher'] == selected_pitcher, 'Grade'].values[0]
+
         st.markdown(f"**Summary**: {total} Pitches | {finish_count} Finish | Avg Score: {avg_score} | Grade: {grade}")
 
-        # ✅ Save session results to the database
-        conn = sqlite3.connect('bullpen_data.db')
+        # Save session results to cloud database
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            database=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            port=DB_PORT
+        )
         cursor = conn.cursor()
 
         for _, row in summary.iterrows():
             cursor.execute("""
                 INSERT INTO pitcher_sessions (pitcher_name, session_date, total_pitches, finish_pitches, avg_score, ppp, grade)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
                 row['Pitcher'],
-                date.today().isoformat(),  # today's date
+                date.today().isoformat(),
                 row['Total Pitches'],
-                view_df['IsFinish'].sum(),  # number of finish pitches (session-based)
+                view_df['IsFinish'].sum(),
                 round(row['Avg Score'], 2),
                 round(row['PPP'], 2),
                 row['Grade']
@@ -240,4 +232,3 @@ if uploaded_file:
 
         conn.commit()
         conn.close()
-
