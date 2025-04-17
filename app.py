@@ -9,13 +9,14 @@ from datetime import date
 
 # 🛠️ Connect to your Supabase database
 conn = psycopg2.connect(
-    host="db.rmdfrysjyzzmkjsxjchy.supabase.co",  # example: "db.rmdfrysjyzzmkjsxjchy.supabase.co"
-    database="postgres",
-    user="postgres",  # usually "postgres"
-    password="-3.1VAAIZ!",  # your password
-    port="5432"
+    host=st.secrets["DB_HOST"],
+    database=st.secrets["DB_NAME"],
+    user=st.secrets["DB_USER"],
+    password=st.secrets["DB_PASSWORD"],
+    port=st.secrets["DB_PORT"]
 )
 cursor = conn.cursor()
+
 
 # 🎨 Set color palette
 PRIMARY_COLOR = "#CE1141"
