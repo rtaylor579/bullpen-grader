@@ -43,7 +43,7 @@ elif page == "📖 View Past Sessions":
     # 📖 Past Pitcher Sessions
     st.header("📖 Past Pitcher Sessions")
 
-    if st.button("🔄 Load Past Sessions"):
+    if st.button("🔄 Load Past Sessions", key="load_past_sessions_button"):
         response = requests.get(
             f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*",
             headers={
