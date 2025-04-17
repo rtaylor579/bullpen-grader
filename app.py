@@ -146,9 +146,9 @@ if uploaded_file:
         ax.add_patch(patches.Rectangle((-8.5, 20), 17, 17, linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3))
 
         legend_elements = [
-            Line2D([0], [0], marker='o', color='red', label='FB: 1 pt (open)', markerfacecolor='red', markeredgecolor='red', markersize=10),
+            Line2D([0], [0], marker='o', color='red', label='FB: 1 pt (open)', markerfacecolor='none', markeredgecolor='red', markersize=10),
             Line2D([0], [0], marker='o', color='red', label='FB: 2 pts (solid)', markerfacecolor='red', markeredgecolor='red', markersize=14),
-            Line2D([0], [0], marker='o', color='blue', label='NFB: 1 pt (open)', markerfacecolor='blue', markeredgecolor='blue', markersize=10),
+            Line2D([0], [0], marker='o', color='blue', label='NFB: 1 pt (open)', markerfacecolor='none', markeredgecolor='blue', markersize=10),
             Line2D([0], [0], marker='o', color='blue', label='NFB: 2 pts (solid)', markerfacecolor='blue', markeredgecolor='blue', markersize=14),
             Line2D([0], [0], marker='s', color='green', label='Finish Buffer Bonus', linestyle='None', markersize=14),
             Line2D([0], [0], marker='X', color='red', label='FB: 0 pts', linestyle='None', markersize=10),
