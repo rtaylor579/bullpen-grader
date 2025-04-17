@@ -105,44 +105,44 @@ df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
 
 
     # 🧮 Scoring logic
-    def score_pitch(row):
-        height = row['PlateLocHeightInches']
-        side = row['PlateLocSideInches']
-        is_fb = row['IsFastball']
-        is_finish = row['IsFinish']
+def score_pitch(row):
+    height = row['PlateLocHeightInches']
+    side = row['PlateLocSideInches']
+    is_fb = row['IsFastball']
+    is_finish = row['IsFinish']
 
-        if pd.isnull(height) or pd.isnull(side):
-            return 0
-        if not (ZONE_SIDE_LEFT <= side <= ZONE_SIDE_RIGHT):
-            return 0
+    if pd.isnull(height) or pd.isnull(side):
+        return 0
+    if not (ZONE_SIDE_LEFT <= side <= ZONE_SIDE_RIGHT):
+        return 0
 
-        score = 0
-        buffer_zone = False
-        midline = (ZONE_TOP + ZONE_BOTTOM) / 2
+    score = 0
+    buffer_zone = False
+    midline = (ZONE_TOP + ZONE_BOTTOM) / 2
 
-        midline = (ZONE_TOP + ZONE_BOTTOM) / 2
+    midline = (ZONE_TOP + ZONE_BOTTOM) / 2
 
-        if is_fb:
-            if ZONE_BOTTOM <= height <= ZONE_TOP:
-                score += 2 if height > midline else 1
-            elif ZONE_TOP < height <= FB_BUFFER_TOP:
-                score += 1
-                buffer_zone = True
-        else:
-            if ZONE_BOTTOM <= height <= ZONE_TOP:
-                score += 2 if height < midline else 1
-            elif NFB_BUFFER_BOTTOM <= height < ZONE_BOTTOM:
-                score += 1
-                buffer_zone = True
-
-        if is_finish and buffer_zone:
+    if is_fb:
+        if ZONE_BOTTOM <= height <= ZONE_TOP:
+            score += 2 if height > midline else 1
+        elif ZONE_TOP < height <= FB_BUFFER_TOP:
             score += 1
+            buffer_zone = True
+    else:
+        if ZONE_BOTTOM <= height <= ZONE_TOP:
+            score += 2 if height < midline else 1
+        elif NFB_BUFFER_BOTTOM <= height < ZONE_BOTTOM:
+            score += 1
+            buffer_zone = True
 
-        return score
+    if is_finish and buffer_zone:
+        score += 1
 
-    df_filtered['PitchScore'] = df_filtered.apply(score_pitch, axis=1)
+    return score
 
-    # 🎯 Pitcher filter
+df_filtered['PitchScore'] = df_filtered.apply(score_pitch, axis=1)
+
+# 🎯 Pitcher filter
     selected_pitcher = st.selectbox("🎯 Filter pitches by pitcher", ["All"] + sorted(df_filtered['Pitcher'].unique().tolist()))
     view_df = df_filtered if selected_pitcher == "All" else df_filtered[df_filtered['Pitcher'] == selected_pitcher]
 
