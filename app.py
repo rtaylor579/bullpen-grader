@@ -25,8 +25,55 @@ BG_COLOR = "#F5F5F5"
 
 st.set_page_config(page_title="🪓 Bullpen Grader", layout="wide")
 
-# Sidebar Navigation
+# 🎯 Sidebar Navigation
 page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions"])
+
+# ✨ Different screens based on page selected
+
+if page == "➕ Upload New Session":
+    # 🧱 Upload New Session
+    uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"])
+
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+
+        # (ALL your scoring, summary, plotting, insertion into Supabase...)
+
+elif page == "📖 View Past Sessions":
+    # 📖 Past Pitcher Sessions
+    st.header("📖 Past Pitcher Sessions")
+
+    if st.button("🔄 Load Past Sessions"):
+        response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*",
+            headers={
+                "apikey": SUPABASE_SERVICE_ROLE_KEY,
+                "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
+            }
+        )
+
+        if response.status_code == 200:
+            past_sessions = pd.DataFrame(response.json())
+            past_sessions = past_sessions.drop_duplicates(subset=["pitcher_name", "session_date"])
+
+            if not past_sessions.empty:
+                past_sessions['session_date'] = pd.to_datetime(past_sessions['session_date']).dt.date
+                past_sessions = past_sessions.sort_values(by="session_date", ascending=False)
+
+                st.dataframe(past_sessions)
+
+                csv = past_sessions.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Download Full Session History",
+                    data=csv,
+                    file_name='past_pitcher_sessions.csv',
+                    mime='text/csv',
+                )
+            else:
+                st.info("No sessions found yet.")
+        else:
+            st.error(f"Failed to load sessions: {response.text}")
+
 
 
 st.markdown(f"""
