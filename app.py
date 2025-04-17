@@ -7,6 +7,11 @@ from matplotlib.lines import Line2D
 import psycopg2
 from datetime import date
 
+st.write("Host:", st.secrets["DB"]["DB_HOST"])
+st.write("User:", st.secrets["DB"]["DB_USER"])
+st.write("Database:", st.secrets["DB"]["DB_NAME"])
+st.write("Port:", st.secrets["DB"]["DB_PORT"])
+
 # 🛠️ Connect to your Supabase database
 conn = psycopg2.connect(
     host=st.secrets["DB"]["DB_HOST"],
