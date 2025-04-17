@@ -4,24 +4,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.lines import Line2D
-import psycopg2
 from datetime import date
 
-st.write("Host:", st.secrets["DB"]["DB_HOST"])
-st.write("User:", st.secrets["DB"]["DB_USER"])
-st.write("Database:", st.secrets["DB"]["DB_NAME"])
-st.write("Port:", st.secrets["DB"]["DB_PORT"])
+import requests
+import json
 
-# 🛠️ Connect to your Supabase database
-conn = psycopg2.connect(
-    host=st.secrets["DB"]["DB_HOST"],
-    database=st.secrets["DB"]["DB_NAME"],
-    user=st.secrets["DB"]["DB_USER"],
-    password=st.secrets["DB"]["DB_PASSWORD"],
-    port=st.secrets["DB"]["DB_PORT"],
-    sslmode="require"
-)
-cursor = conn.cursor()
+SUPABASE_URL = "https://rmdfrysjyzzmkjsxjchy.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtZGZyeXNqeXp6bWtqc3hqY2h5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDkxNjE0NSwiZXhwIjoyMDYwNDkyMTQ1fQ.xbP8Owj-Bz0N1KjhjkXvvnJhvbp5OzCNvJOb7-BCFhA"
+
+headers = {
+    "apikey": SUPABASE_SERVICE_ROLE_KEY,
+    "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
+    "Content-Type": "application/json"
+}
 
 
 PRIMARY_COLOR = "#CE1141"
@@ -151,6 +146,7 @@ if uploaded_file:
     st.download_button("📅 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
     st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
 
+        # 🎯 Strike Zone Plot
     st.subheader("🎯 Strike Zone Plot")
 
     if selected_pitcher == "All":
@@ -188,9 +184,6 @@ if uploaded_file:
         ax.add_patch(patches.Rectangle((-8.5, 20), 17, 17, linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3))
 
         # Legend
-        ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM, edgecolor='black', fill=False, linewidth=2))
-        ax.add_patch(patches.Rectangle((-8.5, 20), 17, 17, linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3))
-
         legend_elements = [
             Line2D([0], [0], marker='o', color='red', label='FB: 1 pt (open)', markerfacecolor='none', markeredgecolor='red', markersize=10),
             Line2D([0], [0], marker='o', color='red', label='FB: 2 pts (solid)', markerfacecolor='red', markeredgecolor='red', markersize=14),
@@ -209,13 +202,10 @@ if uploaded_file:
         ax.set_title(f"{selected_pitcher} Strike Zone")
         ax.grid(True, linestyle='--', alpha=0.3)
         ax.set_facecolor("#f9f9f9")
-        total = len(pitcher_df)
-        finish_count = pitcher_df['IsFinish'].sum()
-        avg_score = pitcher_df['PitchScore'].mean().round(2)
-        grade = summary.loc[summary['Pitcher'] == selected_pitcher, 'Grade'].values[0]
 
         st.pyplot(fig)
 
+        # PDF Export
         pdf_buffer = io.BytesIO()
         fig.savefig(pdf_buffer, format="pdf", bbox_inches="tight")
         pdf_buffer.seek(0)
@@ -227,23 +217,31 @@ if uploaded_file:
             mime="application/pdf"
         )
 
-        # ✅ Save session results to Supabase
-        for _, row in summary.iterrows():
-            cursor.execute("""
-                INSERT INTO pitcher_sessions (pitcher_name, session_date, total_pitches, finish_pitches, avg_score, ppp, grade)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (
-                str(row['Pitcher']),
-                date.today().isoformat(),
-                int(row['Total Pitches']),
-                int(view_df['IsFinish'].sum()),
-                float(round(row['Avg Score'], 2)),
-                float(round(row['PPP'], 2)),
-                str(row['Grade'])
-            ))
+    # ✅ Save session results to Supabase using REST API
+    for _, row in summary.iterrows():
+        payload = {
+            "pitcher_name": str(row['Pitcher']),
+            "session_date": date.today().isoformat(),
+            "total_pitches": int(row['Total Pitches']),
+            "finish_pitches": int(view_df['IsFinish'].sum()),
+            "avg_score": float(round(row['Avg Score'], 2)),
+            "ppp": float(round(row['PPP'], 2)),
+            "grade": str(row['Grade'])
+        }
 
-        conn.commit()
+        response = requests.post(
+            f"{SUPABASE_URL}/rest/v1/pitcher_sessions",
+            headers=headers,
+            data=json.dumps(payload)
+        )
 
-        st.markdown(f"**Summary**: {total} Pitches | {finish_count} Finish | Avg Score: {avg_score} | Grade: {grade}")
+        if response.status_code in [200, 201]:
+            st.success(f"✅ Inserted session for {row['Pitcher']}")
+        else:
+            st.error(f"❌ Failed to insert {row['Pitcher']}: {response.text}")
 
-
+    # 🧠 Show the session summary
+    total = len(view_df)
+    finish_count = view_df['IsFinish'].sum()
+    avg_score = view_df['PitchScore'].mean().round(2)
+    st.markdown(f"**Summary**: {total} Pitches | {finish_count} Finish | Avg Score: {avg_score}")
