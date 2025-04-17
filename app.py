@@ -213,11 +213,25 @@ if uploaded_file:
             mime="application/pdf"
         )
 
-    # ✅ Save session results to Supabase using REST API
-    for _, row in summary.iterrows():
+# ✅ Save session results to Supabase using REST API, but prevent duplicates
+for _, row in summary.iterrows():
+    pitcher_name = str(row['Pitcher'])
+    session_date = date.today().isoformat()
+
+    # 🧠 Check if this pitcher and date already exist
+    check_response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/pitcher_sessions?pitcher_name=eq.{pitcher_name}&session_date=eq.{session_date}",
+        headers={
+            "apikey": SUPABASE_SERVICE_ROLE_KEY,
+            "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}"
+        }
+    )
+
+    if check_response.status_code == 200 and len(check_response.json()) == 0:
+        # 🚀 Safe to insert — no duplicate
         payload = {
-            "pitcher_name": str(row['Pitcher']),
-            "session_date": date.today().isoformat(),
+            "pitcher_name": pitcher_name,
+            "session_date": session_date,
             "total_pitches": int(row['Total Pitches']),
             "finish_pitches": int(view_df['IsFinish'].sum()),
             "avg_score": float(round(row['Avg Score'], 2)),
@@ -225,16 +239,19 @@ if uploaded_file:
             "grade": str(row['Grade'])
         }
 
-        response = requests.post(
+        insert_response = requests.post(
             f"{SUPABASE_URL}/rest/v1/pitcher_sessions",
             headers=headers,
             data=json.dumps(payload)
         )
 
-        if response.status_code in [200, 201]:
-            st.success(f"✅ Inserted session for {row['Pitcher']}")
+        if insert_response.status_code in [200, 201]:
+            st.success(f"✅ Inserted session for {pitcher_name}")
         else:
-            st.error(f"❌ Failed to insert {row['Pitcher']}: {response.text}")
+            st.error(f"❌ Failed to insert {pitcher_name}: {insert_response.text}")
+    else:
+        st.info(f"⚠️ Session for {pitcher_name} on {session_date} already exists — skipping.")
+
 
     # 🧠 Show the session summary
     total = len(view_df)
