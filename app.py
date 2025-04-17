@@ -143,29 +143,29 @@ def score_pitch(row):
 df_filtered['PitchScore'] = df_filtered.apply(score_pitch, axis=1)
 
 # 🎯 Pitcher filter
-    selected_pitcher = st.selectbox("🎯 Filter pitches by pitcher", ["All"] + sorted(df_filtered['Pitcher'].unique().tolist()))
-    view_df = df_filtered if selected_pitcher == "All" else df_filtered[df_filtered['Pitcher'] == selected_pitcher]
+selected_pitcher = st.selectbox("🎯 Filter pitches by pitcher", ["All"] + sorted(df_filtered['Pitcher'].unique().tolist()))
+view_df = df_filtered if selected_pitcher == "All" else df_filtered[df_filtered['Pitcher'] == selected_pitcher]
 
-    # 📊 Pitch-Level Data
-    st.subheader("📊 Pitch-Level Data")
-    st.dataframe(view_df[['Pitcher', 'TaggedPitchType', 'PlateLocHeightInches', 'PlateLocSideInches', 'IsFinish', 'PitchScore']])
+# 📊 Pitch-Level Data
+st.subheader("📊 Pitch-Level Data")
+st.dataframe(view_df[['Pitcher', 'TaggedPitchType', 'PlateLocHeightInches', 'PlateLocSideInches', 'IsFinish', 'PitchScore']])
 
-    # 🧾 Pitcher Summary
-    summary = df_filtered.groupby('Pitcher')['PitchScore'].agg(['count', 'sum', 'mean']).reset_index()
-    summary.columns = ['Pitcher', 'Total Pitches', 'Total Score', 'Avg Score']
-    summary['PPP'] = summary['Total Score'] / summary['Total Pitches']
+# 🧾 Pitcher Summary
+summary = df_filtered.groupby('Pitcher')['PitchScore'].agg(['count', 'sum', 'mean']).reset_index()
+summary.columns = ['Pitcher', 'Total Pitches', 'Total Score', 'Avg Score']
+summary['PPP'] = summary['Total Score'] / summary['Total Pitches']
 
-    def assign_grade(pct):
-        if pct > 0.8:
-            return "A"
-        elif pct > 0.65:
-            return "B"
-        elif pct > 0.5:
-            return "C"
-        elif pct > 0.35:
-            return "D"
-        else:
-            return "F"
+def assign_grade(pct):
+    if pct > 0.8:
+        return "A"
+    elif pct > 0.65:
+        return "B"
+    elif pct > 0.5:
+        return "C"
+    elif pct > 0.35:
+        return "D"
+    else:
+        return "F"
 
     max_possible = df_filtered.groupby('Pitcher').apply(
         lambda x: sum((x['IsFastball'] & (x['PlateLocHeightInches'] > ZONE_TOP) & (x['PlateLocHeightInches'] <= FB_BUFFER_TOP)) |
