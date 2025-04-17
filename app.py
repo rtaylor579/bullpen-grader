@@ -14,7 +14,8 @@ conn = psycopg2.connect(
     user=st.secrets["DB"]["DB_USER"],
     password=st.secrets["DB"]["DB_PASSWORD"],
     port=st.secrets["DB"]["DB_PORT"],
-    sslmode='require'
+    sslmode='require',
+    options='-c search_path=public'
 )
 
 cursor = conn.cursor()
