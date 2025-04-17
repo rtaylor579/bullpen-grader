@@ -22,10 +22,9 @@ conn = psycopg2.connect(
     sslmode="require",
     options="-c search_path=public"
 )
-
 cursor = conn.cursor()
 
-# 🎨 Set color palette and page style
+
 PRIMARY_COLOR = "#CE1141"
 SECONDARY_COLOR = "#13274F"
 BG_COLOR = "#F5F5F5"
@@ -53,7 +52,7 @@ if uploaded_file:
     df_filtered['PlateLocHeightInches'] = df_filtered['PlateLocHeight'] * 12
     df_filtered['PlateLocSideInches'] = df_filtered['PlateLocSide'] * 12
 
-    # Constants for zone
+    # Constants
     ZONE_BOTTOM = 19.4
     ZONE_TOP = 38.5
     FB_BUFFER_TOP = 40.5
@@ -65,6 +64,7 @@ if uploaded_file:
     fastballs = ["Fastball", "Sinker", "Cutter"]
     df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].apply(lambda x: any(fb.lower() in str(x).lower() for fb in fastballs))
     df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
+
 
     # 🧮 Scoring logic
     def score_pitch(row):
@@ -80,6 +80,8 @@ if uploaded_file:
 
         score = 0
         buffer_zone = False
+        midline = (ZONE_TOP + ZONE_BOTTOM) / 2
+
         midline = (ZONE_TOP + ZONE_BOTTOM) / 2
 
         if is_fb:
@@ -147,6 +149,9 @@ if uploaded_file:
     st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
 
     # 🎯 Strike Zone Plot
+    st.download_button("📅 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
+    st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
+
     st.subheader("🎯 Strike Zone Plot")
 
     if selected_pitcher == "All":
@@ -184,6 +189,9 @@ if uploaded_file:
         ax.add_patch(patches.Rectangle((-8.5, 20), 17, 17, linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3))
 
         # Legend
+        ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM, edgecolor='black', fill=False, linewidth=2))
+        ax.add_patch(patches.Rectangle((-8.5, 20), 17, 17, linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3))
+
         legend_elements = [
             Line2D([0], [0], marker='o', color='red', label='FB: 1 pt (open)', markerfacecolor='none', markeredgecolor='red', markersize=10),
             Line2D([0], [0], marker='o', color='red', label='FB: 2 pts (solid)', markerfacecolor='red', markeredgecolor='red', markersize=14),
@@ -202,10 +210,13 @@ if uploaded_file:
         ax.set_title(f"{selected_pitcher} Strike Zone")
         ax.grid(True, linestyle='--', alpha=0.3)
         ax.set_facecolor("#f9f9f9")
+        total = len(pitcher_df)
+        finish_count = pitcher_df['IsFinish'].sum()
+        avg_score = pitcher_df['PitchScore'].mean().round(2)
+        grade = summary.loc[summary['Pitcher'] == selected_pitcher, 'Grade'].values[0]
 
         st.pyplot(fig)
 
-        # 📥 Save PDF of Strike Zone
         pdf_buffer = io.BytesIO()
         fig.savefig(pdf_buffer, format="pdf", bbox_inches="tight")
         pdf_buffer.seek(0)
@@ -233,4 +244,7 @@ if uploaded_file:
             ))
 
         conn.commit()
+
+        st.markdown(f"**Summary**: {total} Pitches | {finish_count} Finish | Avg Score: {avg_score} | Grade: {grade}")
+
 
