@@ -32,7 +32,7 @@ page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Ses
 
 if page == "➕ Upload New Session":
     # 🧱 Upload New Session
-    uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"])
+    uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"], key="upload_new_session_file")
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
