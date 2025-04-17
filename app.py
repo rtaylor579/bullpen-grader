@@ -88,14 +88,6 @@ st.markdown(f"""
 st.title("🪓 Braves Bullpen Grader")
 st.markdown("Upload your bullpen CSV to grade and visualize pitch effectiveness. Finish pitches are detected from the 'Flag' column.")
 
-# 📂 Upload CSV
-uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"])
-
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
-    df_filtered = df[['Pitcher', 'TaggedPitchType', 'PlateLocHeight', 'PlateLocSide', 'Flag']].copy()
-    df_filtered['PlateLocHeightInches'] = df_filtered['PlateLocHeight'] * 12
-    df_filtered['PlateLocSideInches'] = df_filtered['PlateLocSide'] * 12
 
     # Constants
     ZONE_BOTTOM = 19.4
