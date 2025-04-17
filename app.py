@@ -217,13 +217,13 @@ if uploaded_file:
                 INSERT INTO pitcher_sessions (pitcher_name, session_date, total_pitches, finish_pitches, avg_score, ppp, grade)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
             """, (
-                row['Pitcher'],
+                str(row['Pitcher']),
                 date.today().isoformat(),
-                row['Total Pitches'],
-                view_df['IsFinish'].sum(),
-                round(row['Avg Score'], 2),
-                round(row['PPP'], 2),
-                row['Grade']
+                int(row['Total Pitches']),
+                int(view_df['IsFinish'].sum()),
+                float(round(row['Avg Score'], 2)),
+                float(round(row['PPP'], 2)),
+                str(row['Grade'])
             ))
 
         conn.commit()
