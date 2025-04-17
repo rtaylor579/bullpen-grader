@@ -89,18 +89,19 @@ st.title("🪓 Braves Bullpen Grader")
 st.markdown("Upload your bullpen CSV to grade and visualize pitch effectiveness. Finish pitches are detected from the 'Flag' column.")
 
 
-    # Constants
-    ZONE_BOTTOM = 19.4
-    ZONE_TOP = 38.5
-    FB_BUFFER_TOP = 40.5
-    NFB_BUFFER_BOTTOM = 17.4
-    ZONE_SIDE_LEFT = -8.5
-    ZONE_SIDE_RIGHT = 8.5
+# Constants
+ZONE_BOTTOM = 19.4
+ZONE_TOP = 38.5
+FB_BUFFER_TOP = 40.5
+NFB_BUFFER_BOTTOM = 17.4
+ZONE_SIDE_LEFT = -8.5
+ZONE_SIDE_RIGHT = 8.5
 
-    # Classify pitch types
-    fastballs = ["Fastball", "Sinker", "Cutter"]
-    df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].apply(lambda x: any(fb.lower() in str(x).lower() for fb in fastballs))
-    df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
+# Classify pitch types
+fastballs = ["Fastball", "Sinker", "Cutter"]
+df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].apply(lambda x: any(fb.lower() in str(x).lower() for fb in fastballs))
+df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
+
 
 
     # 🧮 Scoring logic
