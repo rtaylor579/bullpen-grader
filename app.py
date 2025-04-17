@@ -2,25 +2,27 @@ import io
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 import matplotlib.patches as patches
 from matplotlib.lines import Line2D
 import psycopg2
 from datetime import date
 
-# Database connection settings
-DB_HOST = "db.rmdfrysjyzzmkjsxjchy.supabase.co"
-DB_NAME = "postgres"
-DB_USER = "postgres"
-DB_PASSWORD = "-3.1VAAIZ!"
-DB_PORT = "5432"  # Supabase default port
+# 🛠️ Connect to your Supabase database
+conn = psycopg2.connect(
+    host="YOUR_SUPABASE_HOST",  # example: "db.rmdfrysjyzzmkjsxjchy.supabase.co"
+    database="postgres",
+    user="YOUR_SUPABASE_USER",  # usually "postgres"
+    password="YOUR_SUPABASE_PASSWORD",  # your password
+    port="5432"
+)
+cursor = conn.cursor()
 
-# Set color palette
+# 🎨 Set color palette
 PRIMARY_COLOR = "#CE1141"
 SECONDARY_COLOR = "#13274F"
 BG_COLOR = "#F5F5F5"
 
-st.set_page_config(page_title="🪓 Bullpen Grader", layout="wide")
+st.set_page_config(page_title="🪓 Braves Bullpen Grader", layout="wide")
 
 st.markdown(f"""
     <style>
@@ -53,7 +55,7 @@ if uploaded_file:
     df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].apply(lambda x: any(fb.lower() in str(x).lower() for fb in fastballs))
     df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
 
-    # Scoring
+    # Scoring function
     def score_pitch(row):
         height = row['PlateLocHeightInches']
         side = row['PlateLocSideInches']
@@ -67,7 +69,6 @@ if uploaded_file:
 
         score = 0
         buffer_zone = False
-
         midline = (ZONE_TOP + ZONE_BOTTOM) / 2
 
         if is_fb:
@@ -96,7 +97,7 @@ if uploaded_file:
     st.subheader("📊 Pitch-Level Data")
     st.dataframe(view_df[['Pitcher', 'TaggedPitchType', 'PlateLocHeightInches', 'PlateLocSideInches', 'IsFinish', 'PitchScore']])
 
-    # Summary
+    # Pitcher Summary
     summary = df_filtered.groupby('Pitcher')['PitchScore'].agg(['count', 'sum', 'mean']).reset_index()
     summary.columns = ['Pitcher', 'Total Pitches', 'Total Score', 'Avg Score']
     summary['PPP'] = summary['Total Score'] / summary['Total Pitches']
@@ -131,6 +132,7 @@ if uploaded_file:
     st.download_button("📅 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
     st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
 
+    # 🎯 Strike Zone Plot
     st.subheader("🎯 Strike Zone Plot")
 
     if selected_pitcher == "All":
@@ -163,10 +165,11 @@ if uploaded_file:
                 else:
                     ax.plot(x, y, marker='o', color='blue', markersize=14, markeredgecolor='blue')
 
-        ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM, edgecolor='black', fill=False, linewidth=2))
+        ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM,
+                                   edgecolor='black', fill=False, linewidth=2))
         ax.add_patch(patches.Rectangle((-8.5, 20), 17, 17, linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3))
 
-        legend_elements = [
+        ax.legend([
             Line2D([0], [0], marker='o', color='red', label='FB: 1 pt (open)', markerfacecolor='none', markeredgecolor='red', markersize=10),
             Line2D([0], [0], marker='o', color='red', label='FB: 2 pts (solid)', markerfacecolor='red', markeredgecolor='red', markersize=14),
             Line2D([0], [0], marker='o', color='blue', label='NFB: 1 pt (open)', markerfacecolor='none', markeredgecolor='blue', markersize=10),
@@ -174,8 +177,7 @@ if uploaded_file:
             Line2D([0], [0], marker='s', color='green', label='Finish Buffer Bonus', linestyle='None', markersize=14),
             Line2D([0], [0], marker='X', color='red', label='FB: 0 pts', linestyle='None', markersize=10),
             Line2D([0], [0], marker='X', color='blue', label='NFB: 0 pts', linestyle='None', markersize=10),
-        ]
-        ax.legend(handles=legend_elements, loc='upper right', frameon=True)
+        ], loc='upper right', frameon=True)
 
         ax.set_xlim(-10, 10)
         ax.set_ylim(18, 42)
@@ -187,7 +189,7 @@ if uploaded_file:
 
         st.pyplot(fig)
 
-        # Save PDF of Strike Zone
+        # Export Strike Zone PDF
         pdf_buffer = io.BytesIO()
         fig.savefig(pdf_buffer, format="pdf", bbox_inches="tight")
         pdf_buffer.seek(0)
@@ -199,36 +201,23 @@ if uploaded_file:
             mime="application/pdf"
         )
 
-        total = len(pitcher_df)
-        finish_count = pitcher_df['IsFinish'].sum()
-        avg_score = pitcher_df['PitchScore'].mean().round(2)
-        grade = summary.loc[summary['Pitcher'] == selected_pitcher, 'Grade'].values[0]
+        st.markdown(f"**Summary**: {len(pitcher_df)} Pitches | {pitcher_df['IsFinish'].sum()} Finish | Avg Score: {avg_score} | Grade: {grade}")
 
-        st.markdown(f"**Summary**: {total} Pitches | {finish_count} Finish | Avg Score: {avg_score} | Grade: {grade}")
+    # ✅ Insert into Supabase pitcher_sessions table
+    for _, row in summary.iterrows():
+        cursor.execute("""
+            INSERT INTO pitcher_sessions (pitcher_name, session_date, total_pitches, finish_pitches, avg_score, ppp, grade)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (
+            row['Pitcher'],
+            date.today().isoformat(),
+            row['Total Pitches'],
+            df_filtered['IsFinish'].sum(),
+            round(row['Avg Score'], 2),
+            round(row['PPP'], 2),
+            row['Grade']
+        ))
 
-        # Save session results to cloud database
-        conn = psycopg2.connect(
-            host=DB_HOST,
-            database=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            port=DB_PORT
-        )
-        cursor = conn.cursor()
-
-        for _, row in summary.iterrows():
-            cursor.execute("""
-                INSERT INTO pitcher_sessions (pitcher_name, session_date, total_pitches, finish_pitches, avg_score, ppp, grade)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (
-                row['Pitcher'],
-                date.today().isoformat(),
-                row['Total Pitches'],
-                view_df['IsFinish'].sum(),
-                round(row['Avg Score'], 2),
-                round(row['PPP'], 2),
-                row['Grade']
-            ))
-
-        conn.commit()
-        conn.close()
+    conn.commit()
+    cursor.close()
+    conn.close()
