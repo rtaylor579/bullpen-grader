@@ -38,49 +38,45 @@ if uploaded_file:
     NFB_BUFFER_BOTTOM = 17.4
     ZONE_SIDE_LEFT = -8.5
     ZONE_SIDE_RIGHT = 8.5
-    ZONE_HEIGHT = ZONE_TOP - ZONE_BOTTOM
-    TOP_THIRD = ZONE_TOP - (ZONE_HEIGHT / 3)
-    BOTTOM_THIRD = ZONE_BOTTOM + (ZONE_HEIGHT / 3)
 
-    # Classify pitch types
     fastballs = ["Fastball", "Sinker", "Cutter"]
     df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].apply(lambda x: any(fb.lower() in str(x).lower() for fb in fastballs))
     df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
 
     # Scoring
-  def score_pitch(row):
-    height = row['PlateLocHeightInches']
-    side = row['PlateLocSideInches']
-    is_fb = row['IsFastball']
-    is_finish = row['IsFinish']
+    def score_pitch(row):
+        height = row['PlateLocHeightInches']
+        side = row['PlateLocSideInches']
+        is_fb = row['IsFastball']
+        is_finish = row['IsFinish']
 
-    if pd.isnull(height) or pd.isnull(side):
-        return 0
-    if not (ZONE_SIDE_LEFT <= side <= ZONE_SIDE_RIGHT):
-        return 0
+        if pd.isnull(height) or pd.isnull(side):
+            return 0
+        if not (ZONE_SIDE_LEFT <= side <= ZONE_SIDE_RIGHT):
+            return 0
 
-    score = 0
-    buffer_zone = False
+        score = 0
+        buffer_zone = False
 
-    midline = (ZONE_TOP + ZONE_BOTTOM) / 2  # Midpoint of the zone
+        midline = (ZONE_TOP + ZONE_BOTTOM) / 2
 
-    if is_fb:
-        if ZONE_BOTTOM <= height <= ZONE_TOP:
-            score += 2 if height > midline else 1
-        elif ZONE_TOP < height <= FB_BUFFER_TOP:
+        if is_fb:
+            if ZONE_BOTTOM <= height <= ZONE_TOP:
+                score += 2 if height > midline else 1
+            elif ZONE_TOP < height <= FB_BUFFER_TOP:
+                score += 1
+                buffer_zone = True
+        else:
+            if ZONE_BOTTOM <= height <= ZONE_TOP:
+                score += 2 if height < midline else 1
+            elif NFB_BUFFER_BOTTOM <= height < ZONE_BOTTOM:
+                score += 1
+                buffer_zone = True
+
+        if is_finish and buffer_zone:
             score += 1
-            buffer_zone = True
-    else:
-        if ZONE_BOTTOM <= height <= ZONE_TOP:
-            score += 2 if height < midline else 1
-        elif NFB_BUFFER_BOTTOM <= height < ZONE_BOTTOM:
-            score += 1
-            buffer_zone = True
 
-    if is_finish and buffer_zone:
-        score += 1
-
-    return score
+        return score
 
     df_filtered['PitchScore'] = df_filtered.apply(score_pitch, axis=1)
 
@@ -96,11 +92,16 @@ if uploaded_file:
     summary['PPP'] = summary['Total Score'] / summary['Total Pitches']
 
     def assign_grade(pct):
-        if pct > 0.8: return "A"
-        elif pct > 0.65: return "B"
-        elif pct > 0.5: return "C"
-        elif pct > 0.35: return "D"
-        else: return "F"
+        if pct > 0.8:
+            return "A"
+        elif pct > 0.65:
+            return "B"
+        elif pct > 0.5:
+            return "C"
+        elif pct > 0.35:
+            return "D"
+        else:
+            return "F"
 
     max_possible = df_filtered.groupby('Pitcher').apply(
         lambda x: sum((x['IsFastball'] & (x['PlateLocHeightInches'] > ZONE_TOP) & (x['PlateLocHeightInches'] <= FB_BUFFER_TOP)) |
@@ -131,7 +132,7 @@ if uploaded_file:
         for _, row in pitcher_df.iterrows():
             x = row['PlateLocSideInches']
             y = row['PlateLocHeightInches']
-            color = "red" if row['IsFastball'] else "blue"
+            is_fb = row['IsFastball']
             score = row['PitchScore']
             is_finish = row['IsFinish']
             in_fb_buffer = row['IsFastball'] and ZONE_TOP < y <= FB_BUFFER_TOP
@@ -140,17 +141,17 @@ if uploaded_file:
             if score >= 3 and is_finish and (in_fb_buffer or in_nfb_buffer):
                 ax.plot(x, y, marker='s', color='green', markersize=14)
             elif score == 0:
-                ax.text(x, y, "X", color=color, fontsize=14, ha='center', va='center')
+                ax.text(x, y, "X", color='red' if is_fb else 'blue', fontsize=14, ha='center', va='center')
             elif score == 1:
-            if row['IsFastball']:
-            ax.plot(x, y, marker='o', color='red', markersize=10, markerfacecolor='none', markeredgecolor='red')
-        else:
-            ax.plot(x, y, marker='o', color='blue', markersize=10, markerfacecolor='none', markeredgecolor='blue')
-    elif score == 2:
-        if row['IsFastball']:
-            ax.plot(x, y, marker='o', color='red', markersize=14, markeredgecolor='red')
-        else:
-            ax.plot(x, y, marker='o', color='blue', markersize=14, markeredgecolor='blue')
+                if is_fb:
+                    ax.plot(x, y, marker='o', color='red', markersize=10, markerfacecolor='none', markeredgecolor='red')
+                else:
+                    ax.plot(x, y, marker='o', color='blue', markersize=10, markerfacecolor='none', markeredgecolor='blue')
+            elif score == 2:
+                if is_fb:
+                    ax.plot(x, y, marker='o', color='red', markersize=14, markeredgecolor='red')
+                else:
+                    ax.plot(x, y, marker='o', color='blue', markersize=14, markeredgecolor='blue')
 
         ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM, edgecolor='black', fill=False, linewidth=2))
         ax.add_patch(patches.Rectangle((-8.5, 20), 17, 17, linewidth=1, edgecolor='black', facecolor='none', linestyle='--', alpha=0.3))
@@ -181,3 +182,4 @@ if uploaded_file:
 
         st.pyplot(fig)
         st.markdown(f"**Summary**: {total} Pitches | {finish_count} Finish | Avg Score: {avg_score} | Grade: {grade}")
+
