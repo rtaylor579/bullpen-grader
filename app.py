@@ -9,10 +9,10 @@ from datetime import date
 
 # 🛠️ Connect to your Supabase database
 conn = psycopg2.connect(
-    host="YOUR_SUPABASE_HOST",  # example: "db.rmdfrysjyzzmkjsxjchy.supabase.co"
+    host="db.rmdfrysjyzzmkjsxjchy.supabase.co",  # example: "db.rmdfrysjyzzmkjsxjchy.supabase.co"
     database="postgres",
-    user="YOUR_SUPABASE_USER",  # usually "postgres"
-    password="YOUR_SUPABASE_PASSWORD",  # your password
+    user="postgres",  # usually "postgres"
+    password="-3.1VAAIZ!",  # your password
     port="5432"
 )
 cursor = conn.cursor()
