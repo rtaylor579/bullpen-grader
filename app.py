@@ -25,6 +25,10 @@ BG_COLOR = "#F5F5F5"
 
 st.set_page_config(page_title="🪓 Bullpen Grader", layout="wide")
 
+# Sidebar Navigation
+page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions"])
+
+
 st.markdown(f"""
     <style>
     .main {{ background-color: {BG_COLOR}; }}
