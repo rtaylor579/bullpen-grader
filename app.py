@@ -1,3 +1,4 @@
+import io
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -181,20 +182,17 @@ if uploaded_file:
         grade = summary.loc[summary['Pitcher'] == selected_pitcher, 'Grade'].values[0]
 
         st.pyplot(fig)
-        import io
 
-# Save the current figure to an in-memory PDF
-pdf_buffer = io.BytesIO()
-fig.savefig(pdf_buffer, format="pdf", bbox_inches="tight")
-pdf_buffer.seek(0)
+        # Save PDF of Strike Zone
+        pdf_buffer = io.BytesIO()
+        fig.savefig(pdf_buffer, format="pdf", bbox_inches="tight")
+        pdf_buffer.seek(0)
 
-# Create a download button
-st.download_button(
-    label="📥 Download Strike Zone Plot as PDF",
-    data=pdf_buffer,
-    file_name=f"Bullpen_Grader_Report_{selected_pitcher.replace(' ', '_')}.pdf",
-    mime="application/pdf"
-)
+        st.download_button(
+            label="📥 Download Strike Zone Plot as PDF",
+            data=pdf_buffer,
+            file_name=f"Bullpen_Grader_Report_{selected_pitcher.replace(' ', '_')}.pdf",
+            mime="application/pdf"
+        )
 
         st.markdown(f"**Summary**: {total} Pitches | {finish_count} Finish | Avg Score: {avg_score} | Grade: {grade}")
-
