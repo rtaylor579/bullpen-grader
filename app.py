@@ -95,7 +95,6 @@ if page == "➕ Upload New Session":
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
         
-        # Extract session date from filename
         uploaded_filename = uploaded_file.name
         date_match = re.search(r'(\d{4}-\d{2}-\d{2})', uploaded_filename)
         if date_match:
@@ -138,7 +137,6 @@ if page == "➕ Upload New Session":
         st.download_button("📅 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
         st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
 
-        # ✅ Save to Supabase
         for _, row in summary.iterrows():
             pitcher_name = str(row['Pitcher'])
             check_response = requests.get(
@@ -156,13 +154,11 @@ if page == "➕ Upload New Session":
                     "ppp": float(round(row['PPP'], 2)),
                     "grade": str(row['Grade'])
                 }
-
                 insert_response = requests.post(
                     f"{SUPABASE_URL}/rest/v1/pitcher_sessions",
                     headers=headers,
                     data=json.dumps(payload)
                 )
-
                 if insert_response.status_code in [200, 201]:
                     st.success(f"✅ Inserted session for {pitcher_name}")
                 else:
@@ -224,4 +220,3 @@ elif page == "📈 Historical Trends":
             st.info("No sessions found yet.")
     else:
         st.error(f"Failed to load sessions: {response.text}")
-
