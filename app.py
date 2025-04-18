@@ -203,8 +203,8 @@ else:
                     st.success(f"✅ Inserted session for {pitcher_name}")
                 else:
                     st.error(f"❌ Failed to insert {pitcher_name}: {insert_response.text}")
-            else:
-                st.info(f"⚠️ Session for {pitcher_name} on {session_date} already exists — skipping.")
+                else:
+                    st.info(f"⚠️ Session for {pitcher_name} on {session_date} already exists — skipping.")
 
 elif page == "📖 View Past Sessions":
     st.title("📖 Past Pitcher Sessions")
