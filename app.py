@@ -228,7 +228,7 @@ elif page == "📖 View Past Sessions":
 elif page == "📈 Historical Trends":
      st.title("📈 Historical Player Trends")
 
-        response = requests.get(
+    response = requests.get(
         f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*",
         headers=headers
     )
