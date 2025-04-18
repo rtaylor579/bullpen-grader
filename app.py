@@ -158,13 +158,13 @@ elif page == "📖 View Past Sessions":
     st.title("📖 Past Pitcher Sessions")
     if st.button("🔄 Load Past Sessions", key="load_past_sessions_button"):
         # 1) Confirm the request URL
-    st.write("Requesting URL:", f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*")
+        st.write("Requesting URL:", f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*")
 
 # 2) Show exactly what headers you’re sending
-    st.write("Outgoing headers:", headers)
+        st.write("Outgoing headers:", headers)
 
 # 3) (Optional) Show repr of the key to catch stray whitespace
-    st.write("Key repr:", repr(SUPABASE_SERVICE_ROLE_KEY))
+        st.write("Key repr:", repr(SUPABASE_SERVICE_ROLE_KEY))
 
         response = requests.get(f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*", headers=headers)
         if response.status_code == 200:
