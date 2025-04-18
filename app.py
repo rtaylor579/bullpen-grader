@@ -41,7 +41,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Sidebar Navigation
-page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions", "📈 Historical Trends", "🧢 Pitcher Dashboard"])
+page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions", "📈 Historical Trends"])
 
 # Functions
 def score_pitch(row):
@@ -90,7 +90,6 @@ if page == "➕ Upload New Session":
     st.markdown("Upload your bullpen CSV to grade and visualize pitch effectiveness. Finish pitches are detected from the 'Flag' column.")
 
     uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"], key="upload_new_session_file")
-
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
@@ -185,56 +184,6 @@ elif page == "📈 Historical Trends":
         else:
             st.info("No sessions yet.")
 
-elif page == "🧢 Pitcher Dashboard":
-    st.title("🧢 Pitcher Dashboard")
-
-    if 'df_filtered' not in st.session_state:
-        st.warning("⚠️ Please upload a bullpen session first on the Upload New Session page.")
-    else:
-        df_filtered = st.session_state.df_filtered
-        selected_pitcher = st.selectbox("🎯 Select Player", sorted(df_filtered['Pitcher'].unique()))
-        pitcher_data = df_filtered[df_filtered['Pitcher'] == selected_pitcher]
-
-        st.subheader(f"🎯 Strike Zone for {selected_pitcher}")
-
-        fig, ax = plt.subplots(figsize=(6, 8))
-        for _, row in pitcher_data.iterrows():
-            x = row['PlateLocSideInches']
-            y = row['PlateLocHeightInches']
-            pitch_type = row['TaggedPitchType']
-
-            # Color by pitch type
-            if any(fb in str(pitch_type).lower() for fb in ["fastball", "sinker", "cutter"]):
-                color = 'red'
-            elif any(b in str(pitch_type).lower() for b in ["slider", "sweeper", "curveball", "slurve", "cb", "sweep"]):
-                color = 'blue'
-            else:
-                color = 'purple'
-
-            ax.plot(x, y, 'o', color=color, markersize=8)
-
-        ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM,
-                                   edgecolor='black', fill=False, linewidth=2))
-        ax.set_xlim(-10, 10)
-        ax.set_ylim(18, 42)
-        ax.set_xlabel("Plate Side (in)")
-        ax.set_ylabel("Plate Height (in)")
-        ax.set_title(f"{selected_pitcher} Strike Zone")
-        ax.grid(True, linestyle='--', alpha=0.3)
-        ax.set_facecolor("#f9f9f9")
-
-        # Legend
-        legend_elements = [
-            Line2D([0], [0], marker='o', color='red', label='Fastballs', markersize=8),
-            Line2D([0], [0], marker='o', color='blue', label='Breaking Balls', markersize=8),
-            Line2D([0], [0], marker='o', color='purple', label='Other Pitches', markersize=8)
-        ]
-        ax.legend(handles=legend_elements, loc='upper right', frameon=True)
-
-        st.pyplot(fig)
-
-        st.subheader(f"📊 Pitch-Level Data for {selected_pitcher}")
-        st.dataframe(pitcher_data)
 
 
 
