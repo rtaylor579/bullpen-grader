@@ -224,7 +224,7 @@ elif page == "🧢 Pitcher Dashboard":
                 # Color mapping
                 if any(fb in str(pitch_type).lower() for fb in ["fastball", "sinker", "cutter"]):
                     color = 'red'
-                elif any(break in str(pitch_type).lower() for break in ["slider", "sweeper", "curveball", "slurve", "cb", "sweep"]):
+                elif any(b in str(pitch_type).lower() for b in ["slider", "sweeper", "curveball", "slurve", "cb", "sweep"]):
                     color = 'blue'
                 else:
                     color = 'purple'
