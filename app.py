@@ -174,26 +174,52 @@ elif page == "📖 View Past Sessions":
             st.error("Failed to load sessions")
             st.write(response.status_code, response.text)
 
-
 elif page == "📈 Historical Trends":
     st.title("📈 Historical Player Trends")
-    response = requests.get(f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*", headers=headers)
-    if response.status_code == 200:
-        past_sessions = pd.DataFrame(response.json())
-        if not past_sessions.empty:
-            past_sessions['session_date'] = pd.to_datetime(past_sessions['session_date']).dt.date
-            player_names = sorted(past_sessions['pitcher_name'].unique())
-            selected_player = st.selectbox("🎯 Select Player", player_names)
-            player_data = past_sessions[past_sessions['pitcher_name'] == selected_player]
-            fig, ax = plt.subplots()
-            ax.plot(player_data['session_date'], player_data['avg_score'], label='Avg Score')
-            ax.plot(player_data['session_date'], player_data['ppp'], linestyle='--', label='Points Per Pitch')
-            ax.legend()
-            ax.set_xlabel("Date")
-            ax.set_ylabel("Score")
-            st.pyplot(fig)
-        else:
-            st.info("No sessions yet.")
+
+    # 1) Fetch all sessions
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*",
+        headers=headers
+    )
+    if response.status_code != 200:
+        st.error("Failed to load sessions")
+        return
+
+    # 2) Load into DataFrame and parse dates
+    past_sessions = pd.DataFrame(response.json())
+    if past_sessions.empty:
+        st.info("No sessions yet.")
+        return
+
+    past_sessions['session_date'] = pd.to_datetime(
+        past_sessions['session_date']
+    ).dt.date
+
+    # 3) Player picker
+    player_names = sorted(past_sessions['pitcher_name'].unique())
+    selected_player = st.selectbox("🎯 Select Player", player_names)
+
+    # 4) Filter & sort that player’s data
+    player_data = (
+        past_sessions[past_sessions['pitcher_name'] == selected_player]
+        .sort_values('session_date')
+    )
+
+    # 5) Plot discrete PPP points on actual session dates
+    fig, ax = plt.subplots(figsize=(8, 4))
+    dates = player_data['session_date']
+    ppp   = player_data['ppp']
+
+    ax.plot(dates, ppp, marker='o', linestyle='', label='Points Per Pitch')
+    ax.set_xticks(dates)                # tick only where data exists
+    ax.set_xlabel("Session Date")
+    ax.set_ylabel("Points Per Pitch")
+    ax.legend(loc="upper left")
+    fig.autofmt_xdate()                 # rotate date labels neatly
+
+    st.pyplot(fig)
+
 
 
 
