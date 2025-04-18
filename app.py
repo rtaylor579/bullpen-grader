@@ -40,7 +40,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Sidebar Navigation
-page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions"])
+page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions", "📈 Historical Trends"])
 
 # Score Pitch Function
 def score_pitch(row):
@@ -224,3 +224,49 @@ elif page == "📖 View Past Sessions":
                 st.info("No sessions found yet.")
         else:
             st.error(f"Failed to load sessions: {response.text}")
+            
+elif page == "📈 Historical Trends":
+     st.title("📈 Historical Player Trends")
+
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*",
+        headers=headers
+    )
+
+    if response.status_code == 200:
+        past_sessions = pd.DataFrame(response.json())
+        
+        if not past_sessions.empty:
+            past_sessions['session_date'] = pd.to_datetime(past_sessions['session_date']).dt.date
+
+            player_names = sorted(past_sessions['pitcher_name'].unique())
+            selected_player = st.selectbox("🎯 Select Player", player_names)
+
+            player_data = past_sessions[past_sessions['pitcher_name'] == selected_player]
+            player_data = player_data.sort_values('session_date')
+
+            # 📈 Plot
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.plot(player_data['session_date'], player_data['avg_score'], marker='o', label='Avg Score')
+            ax.plot(player_data['session_date'], player_data['ppp'], marker='s', linestyle='--', label='Points Per Pitch')
+
+            ax.set_title(f"{selected_player} - Historical Bullpen Trends")
+            ax.set_xlabel("Session Date")
+            ax.set_ylabel("Score")
+            ax.legend()
+            ax.grid(True)
+
+            st.pyplot(fig)
+
+            # Optional: Download Button
+            csv = player_data.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Player History",
+                data=csv,
+                file_name=f'{selected_player}_history.csv',
+                mime='text/csv'
+            )
+        else:
+            st.info("No sessions found yet.")
+    else:
+        st.error(f"Failed to load sessions: {response.text}")
