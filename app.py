@@ -94,13 +94,9 @@ if page == "➕ Upload New Session":
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
-        
         uploaded_filename = uploaded_file.name
         date_match = re.search(r'(\d{4}-\d{2}-\d{2})', uploaded_filename)
-        if date_match:
-            session_date = date_match.group(1)
-        else:
-            session_date = date.today().isoformat()
+        session_date = date_match.group(1) if date_match else data.today().isoformat()
 
         df_filtered = df[['Pitcher', 'TaggedPitchType', 'PlateLocHeight', 'PlateLocSide', 'Flag']].copy()
         df_filtered['PlateLocHeightInches'] = df_filtered['PlateLocHeight'] * 12
