@@ -90,7 +90,6 @@ if page == "➕ Upload New Session":
     st.markdown("Upload your bullpen CSV to grade and visualize pitch effectiveness. Finish pitches are detected from the 'Flag' column.")
 
     uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"], key="upload_new_session_file")
-    st.session_state.df_filtered = df_filtered
 
 
     if uploaded_file:
