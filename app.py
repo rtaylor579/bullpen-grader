@@ -163,6 +163,8 @@ elif page == "📖 View Past Sessions":
             st.dataframe(past_sessions)
         else:
             st.error("Failed to load sessions")
+            st.write(response.status_code, response.text)
+
 
 elif page == "📈 Historical Trends":
     st.title("📈 Historical Player Trends")
