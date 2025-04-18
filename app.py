@@ -11,7 +11,7 @@ import json
 
 # Constants
 SUPABASE_URL = "https://rmdfrysjyzzmkjsxjchy.supabase.co"
-SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+SUPABASE_SERVICE_ROLE_KEY = "your_supabase_service_role_key_here"
 headers = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
@@ -85,6 +85,7 @@ def assign_grade(pct):
         return "F"
 
 # ----------------- Pages ----------------- #
+
 if page == "➕ Upload New Session":
     st.title("🪓 Braves Bullpen Grader")
     st.markdown("Upload your bullpen CSV to grade and visualize pitch effectiveness. Finish pitches are detected from the 'Flag' column.")
