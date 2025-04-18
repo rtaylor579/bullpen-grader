@@ -31,7 +31,7 @@ fastballs = ["Fastball", "Sinker", "Cutter"]
 PRIMARY_COLOR = "#CE1141"
 SECONDARY_COLOR = "#13274F"
 BG_COLOR = "#F5F5F5"
-st.set_page_config(page_title="🥛 Bullpen Grader", layout="wide")
+st.set_page_config(page_title="✏️  Bullpen Grader", layout="wide")
 st.markdown(f"""
     <style>
     .main {{ background-color: {BG_COLOR}; }}
