@@ -41,7 +41,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # Sidebar Navigation
-page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions", "📈 Historical Trends"])
+page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions", "📈 Historical Trends", "🧢 Pitcher Dashboard"])
 
 # Functions
 def score_pitch(row):
@@ -183,4 +183,80 @@ elif page == "📈 Historical Trends":
             st.pyplot(fig)
         else:
             st.info("No sessions yet.")
+
+
+elif page == "🧢 Pitcher Dashboard":
+    st.title("🧢 Pitcher Dashboard")
+
+    # Load all sessions
+    response = requests.get(f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*", headers=headers)
+    if response.status_code == 200:
+        past_sessions = pd.DataFrame(response.json())
+
+        if not past_sessions.empty:
+            past_sessions['session_date'] = pd.to_datetime(past_sessions['session_date']).dt.date
+
+            # Player selection
+            player_names = sorted(past_sessions['pitcher_name'].unique())
+            selected_player = st.selectbox("🎯 Select Player", player_names)
+
+            # Get player data
+            player_data = past_sessions[past_sessions['pitcher_name'] == selected_player]
+
+            # Session selection
+            sessions = player_data['session_date'].unique()
+            session_choice = st.selectbox("📅 Select Session", ["All Sessions"] + list(sessions))
+
+            if session_choice == "All Sessions":
+                view_data = player_data
+            else:
+                view_data = player_data[player_data['session_date'] == session_choice]
+
+            st.subheader(f"🎯 Strike Zone for {selected_player} ({session_choice})")
+
+            fig, ax = plt.subplots(figsize=(6, 8))
+
+            for _, row in view_data.iterrows():
+                x = row.get('PlateLocSideInches', 0)
+                y = row.get('PlateLocHeightInches', 0)
+                pitch_type = row.get('TaggedPitchType', 'Other')
+
+                # Color mapping
+                if any(fb in str(pitch_type).lower() for fb in ["fastball", "sinker", "cutter"]):
+                    color = 'red'
+                elif any(break in str(pitch_type).lower() for break in ["slider", "sweeper", "curveball", "slurve", "cb", "sweep"]):
+                    color = 'blue'
+                else:
+                    color = 'purple'
+
+                ax.plot(x, y, marker='o', color=color, markersize=10)
+
+            # Strike zone box
+            ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM, edgecolor='black', fill=False, linewidth=2))
+            ax.set_xlim(-10, 10)
+            ax.set_ylim(18, 42)
+            ax.set_xlabel("Plate Side (in)")
+            ax.set_ylabel("Plate Height (in)")
+            ax.set_title(f"{selected_player} Strike Zone")
+            ax.grid(True, linestyle='--', alpha=0.3)
+            ax.set_facecolor("#f9f9f9")
+
+            # Legend
+            legend_elements = [
+                Line2D([0], [0], marker='o', color='red', label='Fastballs', markerfacecolor='red', markersize=10),
+                Line2D([0], [0], marker='o', color='blue', label='Breaking Balls', markerfacecolor='blue', markersize=10),
+                Line2D([0], [0], marker='o', color='purple', label='Other Pitches', markerfacecolor='purple', markersize=10)
+            ]
+            ax.legend(handles=legend_elements, loc='upper right', frameon=True)
+
+            st.pyplot(fig)
+
+            st.subheader(f"📊 Pitch-Level Data for {selected_player}")
+            st.dataframe(view_data)
+
+        else:
+            st.info("No pitcher sessions found yet.")
+    else:
+        st.error("Failed to load sessions.")
+
 
