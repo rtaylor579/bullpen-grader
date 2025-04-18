@@ -134,6 +134,46 @@ if page == "➕ Upload New Session":
         st.subheader("Pitcher Summary & Grades")
         st.dataframe(summary[['Pitcher', 'Total Pitches', 'Total Score', 'Avg Score', 'PPP', 'Grade']])
 
+        st.subheader("🎯 Strike Zone Plot")
+
+if selected_pitcher == "All":
+    st.info("Select a specific pitcher to view their strike zone plot.")
+else:
+    fig, ax = plt.subplots(figsize=(6, 8))
+    pitcher_df = view_df.copy()
+
+    for _, row in pitcher_df.iterrows():
+        x = row['PlateLocSideInches']
+        y = row['PlateLocHeightInches']
+        is_fb = row['IsFastball']
+        score = row['PitchScore']
+        is_finish = row['IsFinish']
+        in_fb_buffer = is_fb and ZONE_TOP < y <= FB_BUFFER_TOP
+        in_nfb_buffer = not is_fb and NFB_BUFFER_BOTTOM <= y < ZONE_BOTTOM
+
+        if score >= 3 and is_finish and (in_fb_buffer or in_nfb_buffer):
+            ax.plot(x, y, marker='s', color='green', markersize=14)
+        elif score == 0:
+            ax.text(x, y, "X", color='red' if is_fb else 'blue', fontsize=14, ha='center', va='center')
+        elif score == 1:
+            ax.plot(x, y, marker='o', color='red' if is_fb else 'blue', markersize=10, markerfacecolor='none')
+        elif score == 2:
+            ax.plot(x, y, marker='o', color='red' if is_fb else 'blue', markersize=14)
+
+    # Strike zone box
+    ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM,
+                                edgecolor='black', fill=False, linewidth=2))
+    ax.set_xlim(-10, 10)
+    ax.set_ylim(18, 42)
+    ax.set_xlabel("Plate Side (in)")
+    ax.set_ylabel("Plate Height (in)")
+    ax.set_title(f"{selected_pitcher} Strike Zone")
+    ax.grid(True, linestyle='--', alpha=0.3)
+    ax.set_facecolor("#f9f9f9")
+
+    st.pyplot(fig)
+
+
         st.download_button("📅 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
         st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
 
