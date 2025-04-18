@@ -177,14 +177,14 @@ else:
     st.download_button("📅 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
     st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
 
-        for _, row in summary.iterrows():
-            pitcher_name = str(row['Pitcher'])
-            check_response = requests.get(
-                f"{SUPABASE_URL}/rest/v1/pitcher_sessions?pitcher_name=eq.{pitcher_name}&session_date=eq.{session_date}",
-                headers=headers
-            )
+    for _, row in summary.iterrows():
+        pitcher_name = str(row['Pitcher'])
+        check_response = requests.get(
+            f"{SUPABASE_URL}/rest/v1/pitcher_sessions?pitcher_name=eq.{pitcher_name}&session_date=eq.{session_date}",
+            headers=headers
+        )
 
-            if check_response.status_code == 200 and len(check_response.json()) == 0:
+        if check_response.status_code == 200 and len(check_response.json()) == 0:
                 payload = {
                     "pitcher_name": pitcher_name,
                     "session_date": session_date,
