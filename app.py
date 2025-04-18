@@ -184,13 +184,13 @@ elif page == "📈 Historical Trends":
     )
     if response.status_code != 200:
         st.error("Failed to load sessions")
-        return
+        st.stop()
 
     # 2) Load into DataFrame and parse dates
     past_sessions = pd.DataFrame(response.json())
     if past_sessions.empty:
         st.info("No sessions yet.")
-        return
+        st.stop()
 
     past_sessions['session_date'] = pd.to_datetime(
         past_sessions['session_date']
