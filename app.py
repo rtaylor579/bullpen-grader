@@ -226,7 +226,7 @@ elif page == "📖 View Past Sessions":
             st.error(f"Failed to load sessions: {response.text}")
             
 elif page == "📈 Historical Trends":
-     st.title("📈 Historical Player Trends")
+    st.title("📈 Historical Player Trends")
 
     response = requests.get(
         f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*",
