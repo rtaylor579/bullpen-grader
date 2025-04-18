@@ -1,4 +1,5 @@
 import io
+import re
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -30,7 +31,7 @@ fastballs = ["Fastball", "Sinker", "Cutter"]
 PRIMARY_COLOR = "#CE1141"
 SECONDARY_COLOR = "#13274F"
 BG_COLOR = "#F5F5F5"
-st.set_page_config(page_title="🪳 Bullpen Grader", layout="wide")
+st.set_page_config(page_title="🢫 Bullpen Grader", layout="wide")
 st.markdown(f"""
     <style>
     .main {{ background-color: {BG_COLOR}; }}
@@ -42,7 +43,7 @@ st.markdown(f"""
 # Sidebar Navigation
 page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions", "📈 Historical Trends"])
 
-# Score Pitch Function
+# Scoring and Grading Functions
 def score_pitch(row):
     height = row['PlateLocHeightInches']
     side = row['PlateLocSideInches']
@@ -71,7 +72,6 @@ def score_pitch(row):
         score += 1
     return score
 
-# Assign Grades
 def assign_grade(pct):
     if pct > 0.8:
         return "A"
@@ -94,6 +94,15 @@ if page == "➕ Upload New Session":
 
     if uploaded_file:
         df = pd.read_csv(uploaded_file)
+        
+        # Extract session date from filename
+        uploaded_filename = uploaded_file.name
+        date_match = re.search(r'(\d{4}-\d{2}-\d{2})', uploaded_filename)
+        if date_match:
+            session_date = date_match.group(1)
+        else:
+            session_date = date.today().isoformat()
+
         df_filtered = df[['Pitcher', 'TaggedPitchType', 'PlateLocHeight', 'PlateLocSide', 'Flag']].copy()
         df_filtered['PlateLocHeightInches'] = df_filtered['PlateLocHeight'] * 12
         df_filtered['PlateLocSideInches'] = df_filtered['PlateLocSide'] * 12
@@ -129,46 +138,9 @@ if page == "➕ Upload New Session":
         st.download_button("📅 Download Pitch-Level Data", data=df_filtered.to_csv(index=False), file_name="pitch_data.csv", mime="text/csv")
         st.download_button("📅 Download Pitcher Summary", data=summary.to_csv(index=False), file_name="pitcher_summary.csv", mime="text/csv")
 
-        st.subheader("🎯 Strike Zone Plot")
-        if selected_pitcher == "All":
-            st.info("Select a specific pitcher to view their strike zone plot.")
-        else:
-            fig, ax = plt.subplots(figsize=(6, 8))
-            pitcher_df = view_df.copy()
-
-            for _, row in pitcher_df.iterrows():
-                x = row['PlateLocSideInches']
-                y = row['PlateLocHeightInches']
-                is_fb = row['IsFastball']
-                score = row['PitchScore']
-                is_finish = row['IsFinish']
-                in_fb_buffer = is_fb and ZONE_TOP < y <= FB_BUFFER_TOP
-                in_nfb_buffer = not is_fb and NFB_BUFFER_BOTTOM <= y < ZONE_BOTTOM
-
-                if score >= 3 and is_finish and (in_fb_buffer or in_nfb_buffer):
-                    ax.plot(x, y, marker='s', color='green', markersize=14)
-                elif score == 0:
-                    ax.text(x, y, "X", color='red' if is_fb else 'blue', fontsize=14, ha='center', va='center')
-                elif score == 1:
-                    ax.plot(x, y, marker='o', color='red' if is_fb else 'blue', markersize=10, markerfacecolor='none')
-                elif score == 2:
-                    ax.plot(x, y, marker='o', color='red' if is_fb else 'blue', markersize=14)
-
-            ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM, edgecolor='black', fill=False, linewidth=2))
-            ax.set_xlim(-10, 10)
-            ax.set_ylim(18, 42)
-            ax.set_xlabel("Plate Side (in)")
-            ax.set_ylabel("Plate Height (in)")
-            ax.set_title(f"{selected_pitcher} Strike Zone")
-            ax.grid(True, linestyle='--', alpha=0.3)
-            ax.set_facecolor("#f9f9f9")
-
-            st.pyplot(fig)
-
-        # Save session results to Supabase, avoiding duplicates
+        # ✅ Save to Supabase
         for _, row in summary.iterrows():
             pitcher_name = str(row['Pitcher'])
-            session_date = date.today().isoformat()
             check_response = requests.get(
                 f"{SUPABASE_URL}/rest/v1/pitcher_sessions?pitcher_name=eq.{pitcher_name}&session_date=eq.{session_date}",
                 headers=headers
@@ -200,13 +172,11 @@ if page == "➕ Upload New Session":
 
 elif page == "📖 View Past Sessions":
     st.title("📖 Past Pitcher Sessions")
-
     if st.button("🔄 Load Past Sessions", key="load_past_sessions_button"):
         response = requests.get(
             f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*",
             headers=headers
         )
-
         if response.status_code == 200:
             past_sessions = pd.DataFrame(response.json())
             if not past_sessions.empty:
@@ -214,38 +184,28 @@ elif page == "📖 View Past Sessions":
                 past_sessions = past_sessions.sort_values(by="session_date", ascending=False)
                 st.dataframe(past_sessions)
                 csv = past_sessions.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Download Full Session History",
-                    data=csv,
-                    file_name='past_pitcher_sessions.csv',
-                    mime='text/csv'
-                )
+                st.download_button("📥 Download Full Session History", data=csv, file_name='past_pitcher_sessions.csv', mime='text/csv')
             else:
                 st.info("No sessions found yet.")
         else:
             st.error(f"Failed to load sessions: {response.text}")
-            
+
 elif page == "📈 Historical Trends":
     st.title("📈 Historical Player Trends")
-
     response = requests.get(
         f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*",
         headers=headers
     )
-
     if response.status_code == 200:
         past_sessions = pd.DataFrame(response.json())
-        
         if not past_sessions.empty:
             past_sessions['session_date'] = pd.to_datetime(past_sessions['session_date']).dt.date
-
             player_names = sorted(past_sessions['pitcher_name'].unique())
             selected_player = st.selectbox("🎯 Select Player", player_names)
 
             player_data = past_sessions[past_sessions['pitcher_name'] == selected_player]
             player_data = player_data.sort_values('session_date')
 
-            # 📈 Plot
             fig, ax = plt.subplots(figsize=(10, 5))
             ax.plot(player_data['session_date'], player_data['avg_score'], marker='o', label='Avg Score')
             ax.plot(player_data['session_date'], player_data['ppp'], marker='s', linestyle='--', label='Points Per Pitch')
@@ -258,15 +218,10 @@ elif page == "📈 Historical Trends":
 
             st.pyplot(fig)
 
-            # Optional: Download Button
             csv = player_data.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download Player History",
-                data=csv,
-                file_name=f'{selected_player}_history.csv',
-                mime='text/csv'
-            )
+            st.download_button("📥 Download Player History", data=csv, file_name=f'{selected_player}_history.csv', mime='text/csv')
         else:
             st.info("No sessions found yet.")
     else:
         st.error(f"Failed to load sessions: {response.text}")
+
