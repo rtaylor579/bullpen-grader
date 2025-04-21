@@ -207,16 +207,24 @@ elif page == "📈 Historical Trends":
     )
 
     # 5) Plot discrete PPP points on actual session dates
-    fig, ax = plt.subplots(figsize=(8, 4))
-    dates = player_data['session_date']
+    player_data = player_data.reset_index(drop=True)
+    dates = player_data['session_date'].astype(str)
     ppp   = player_data['ppp']
+    x = list(range(len(player_data)))
 
-    ax.plot(dates, ppp, marker='o', linestyle='', label='Points Per Pitch')
-    ax.set_xticks(dates)                # tick only where data exists
+    # Plot with even spacing
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(x, ppp, marker='o', linestyle='', label='Points Per Pitch', color='#1f77b4')
+
+    # Customize x-axis ticks
+    ax.set_xticks(x)
+    ax.set_xticklabels(dates, rotation=45, ha='right')
+
+    # Labels and title
     ax.set_xlabel("Session Date")
     ax.set_ylabel("Points Per Pitch")
+    ax.set_title(f"{selected_player} – Session History")
     ax.legend(loc="upper left")
-    fig.autofmt_xdate()                 # rotate date labels neatly
 
     st.pyplot(fig)
 
