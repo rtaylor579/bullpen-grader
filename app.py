@@ -212,9 +212,28 @@ elif page == "📈 Historical Trends":
     ppp   = player_data['ppp']
     x = list(range(len(player_data)))
 
+    # Assign letter grades for annotation
+    def assign_grade(pct):
+        if pct > 0.8:
+            return "A"
+        elif pct > 0.65:
+            return "B"
+        elif pct > 0.5:
+            return "C"
+        elif pct > 0.35:
+            return "D"
+        else:
+            return "F"
+
+    grades = ppp.apply(assign_grade)
+
     # Plot with even spacing
     fig, ax = plt.subplots(figsize=(8, 4))
     ax.plot(x, ppp, marker='o', linestyle='', label='Points Per Pitch', color='#1f77b4')
+
+    # Annotate with grades
+    for i, grade in enumerate(grades):
+        ax.text(x[i], ppp[i] + 0.025, grade, ha='center', va='bottom', fontsize=10, color='black')
 
     # Customize x-axis ticks
     ax.set_xticks(x)
