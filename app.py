@@ -233,7 +233,7 @@ elif page == "📈 Historical Trends":
 
     # Annotate with grades
     for i, grade in enumerate(grades):
-        ax.text(x[i] + 0.05, ppp[i], grade, ha='left', va='center', fontsize=10, color='black')
+        ax.text(x[i] + 0.025, ppp[i], grade, ha='left', va='center', fontsize=10, color='black')
 
     # Customize x-axis ticks
     ax.set_xticks(x)
