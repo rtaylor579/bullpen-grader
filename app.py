@@ -10,29 +10,34 @@ from datetime import date
 import requests
 import json
 
-# Constants
+# ── Constants ──
 SUPABASE_URL = "https://rmdfrysjyzzmkjsxjchy.supabase.co"
-SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtZGZyeXNqeXp6bWtqc3hqY2h5Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDkxNjE0NSwiZXhwIjoyMDYwNDkyMTQ1fQ.xbP8Owj-Bz0N1KjhjkXvvnJhvbp5OzCNvJOb7-BCFhA"
+SUPABASE_SERVICE_ROLE_KEY = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9."
+    "eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtZGZyeXNqeXp6bWtqc3hqY2h5Iiwicm9sZ"
+    "SI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0NDkxNjE0NSwiZXhwIjoyMDYwNDkyMTQ1fQ."
+    "xbP8Owj-Bz0N1KjhjkXvvnJhvbp5OzCNvJOb7-BCFhA"
+)
 headers = {
     "apikey": SUPABASE_SERVICE_ROLE_KEY,
     "Authorization": f"Bearer {SUPABASE_SERVICE_ROLE_KEY}",
-    "Content-Type": "application/json"
+    "Content-Type": "application/json",
 }
 
-# Strike Zone Settings
-ZONE_BOTTOM = 19.4
-ZONE_TOP = 38.5
-FB_BUFFER_TOP = 40.5
+# Strike Zone
+ZONE_BOTTOM       = 19.4
+ZONE_TOP          = 38.5
+FB_BUFFER_TOP     = 40.5
 NFB_BUFFER_BOTTOM = 17.4
-ZONE_SIDE_LEFT = -8.5
-ZONE_SIDE_RIGHT = 8.5
-fastballs = ["Fastball", "Sinker", "Cutter"]
+ZONE_SIDE_LEFT    = -8.5
+ZONE_SIDE_RIGHT   = 8.5
+fastballs         = ["Fastball", "Sinker", "Cutter"]
 
-# Streamlit Page Setup
-PRIMARY_COLOR = "#CE1141"
+# ── Streamlit Styling ──
+PRIMARY_COLOR   = "#CE1141"
 SECONDARY_COLOR = "#13274F"
-BG_COLOR = "#F5F5F5"
-st.set_page_config(page_title="✏️  Bullpen Grader", layout="wide")
+BG_COLOR        = "#F5F5F5"
+st.set_page_config(page_title="✏️ Bullpen Grader", layout="wide")
 st.markdown(f"""
     <style>
     .main {{ background-color: {BG_COLOR}; }}
@@ -41,321 +46,266 @@ st.markdown(f"""
     </style>
 """, unsafe_allow_html=True)
 
-# Sidebar Navigation
-page = st.sidebar.radio("Go to:", ["➕ Upload New Session", "📖 View Past Sessions", "📈 Historical Trends"])
+# ── Sidebar ──
+page = st.sidebar.radio("Go to:", [
+    "➕ Upload New Session",
+    "📖 View Past Sessions",
+    "📈 Historical Trends"
+])
 
-# Functions
+# ── Helpers ──
 def score_pitch(row):
-    height = row['PlateLocHeightInches']
-    side = row['PlateLocSideInches']
-    is_fb = row['IsFastball']
-    is_finish = row['IsFinish']
-    if pd.isnull(height) or pd.isnull(side):
-        return 0
-    if not (ZONE_SIDE_LEFT <= side <= ZONE_SIDE_RIGHT):
-        return 0
+    h, s = row['PlateLocHeightInches'], row['PlateLocSideInches']
+    is_fb, is_fin = row['IsFastball'], row['IsFinish']
+    if pd.isna(h) or pd.isna(s): return 0
+    if not (ZONE_SIDE_LEFT <= s <= ZONE_SIDE_RIGHT): return 0
+
     score = 0
-    buffer_zone = False
-    midline = (ZONE_TOP + ZONE_BOTTOM) / 2
+    mid = (ZONE_TOP + ZONE_BOTTOM)/2
     if is_fb:
-        if ZONE_BOTTOM <= height <= ZONE_TOP:
-            score += 2 if height > midline else 1
-        elif ZONE_TOP < height <= FB_BUFFER_TOP:
-            score += 1
-            buffer_zone = True
+        if ZONE_BOTTOM <= h <= ZONE_TOP:
+            score += 2 if h > mid else 1
+        elif ZONE_TOP < h <= FB_BUFFER_TOP:
+            score += 1; buffer_zone = True
     else:
-        if ZONE_BOTTOM <= height <= ZONE_TOP:
-            score += 2 if height < midline else 1
-        elif NFB_BUFFER_BOTTOM <= height < ZONE_BOTTOM:
-            score += 1
-            buffer_zone = True
-    if is_finish and buffer_zone:
+        if ZONE_BOTTOM <= h <= ZONE_TOP:
+            score += 2 if h < mid else 1
+        elif NFB_BUFFER_BOTTOM <= h < ZONE_BOTTOM:
+            score += 1; buffer_zone = True
+    if is_fin and buffer_zone:
         score += 1
     return score
 
-def assign_grade(pct):
-    if pct > 0.8:
-        return "A"
-    elif pct > 0.65:
-        return "B"
-    elif pct > 0.5:
-        return "C"
-    elif pct > 0.35:
-        return "D"
-    else:
-        return "F"
+def letter_grade(pct):
+    if pct > 0.8:  return "A"
+    if pct > 0.65: return "B"
+    if pct > 0.5:  return "C"
+    if pct > 0.35: return "D"
+    return "F"
 
-# ----------------- Pages ----------------- #
+# ── Pages ── #
+# 1) Upload New Session
 if page == "➕ Upload New Session":
     st.title("🪓 Braves Bullpen Grader")
-    st.markdown("Upload your bullpen CSV to grade and visualize pitch effectiveness. Finish pitches are detected from the 'Flag' column.")
+    st.markdown("Upload your bullpen CSV to grade and store pitches in the database.")
 
-    uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"], key="upload_new_session_file")
+    uploaded_file = st.file_uploader(
+        "Upload bullpen session CSV", type=["csv"], key="upload_new_session_file"
+    )
     if uploaded_file:
-        # ── Read CSV and extract date ──
         df = pd.read_csv(uploaded_file)
-        uploaded_filename = uploaded_file.name
-        date_match = re.search(r'(\d{4}-\d{2}-\d{2})', uploaded_filename)
-        session_date = date_match.group(1) if date_match else date.today().isoformat()
+        fname = uploaded_file.name
+        m = re.search(r'(\d{4}-\d{2}-\d{2})', fname)
+        session_date = m.group(1) if m else date.today().isoformat()
 
-        # ── Compute pitching DataFrame ──
-        df_filtered = df[['Pitcher', 'TaggedPitchType', 'PlateLocHeight', 'PlateLocSide', 'Flag']].copy()
+        # prepare DataFrame
+        df_filtered = df[[
+            'Pitcher','TaggedPitchType','PlateLocHeight','PlateLocSide','Flag'
+        ]].copy()
         df_filtered['PlateLocHeightInches'] = df_filtered['PlateLocHeight'] * 12
-        df_filtered['PlateLocSideInches']   = df_filtered['PlateLocSide'] * 12
-        df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].apply(
-            lambda x: any(fb.lower() in str(x).lower() for fb in fastballs)
+        df_filtered['PlateLocSideInches']   = df_filtered['PlateLocSide']   * 12
+        df_filtered['IsFastball'] = df_filtered['TaggedPitchType'].str.contains(
+            '|'.join(fastballs), case=False, regex=True
         )
         df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
         df_filtered['PitchScore'] = df_filtered.apply(score_pitch, axis=1)
 
-         # ── BULK INSERT PITCHES INTO Supabase ──
-        records = (
-            df_filtered
-            .rename(columns={
-                'Pitcher':               'pitcher_name',
-                'TaggedPitchType':       'tagged_pitch_type',
-                'PlateLocHeightInches':  'plate_loc_height_inches',
-                'PlateLocSideInches':    'plate_loc_side_inches',
-                'IsFastball':            'is_fastball',
-                'IsFinish':              'is_finish',
-                'PitchScore':            'pitch_score'
-            })[
-                [
-                    'pitcher_name',
-                    'tagged_pitch_type',
-                    'plate_loc_height_inches',
-                    'plate_loc_side_inches',
-                    'is_fastball',
-                    'is_finish',
-                    'pitch_score'
-                ]
-            ]
-        )
+        # bulk‑insert into Supabase
+        records = df_filtered.rename(columns={
+            'Pitcher':               'pitcher_name',
+            'TaggedPitchType':       'tagged_pitch_type',
+            'PlateLocHeightInches':  'plate_loc_height_inches',
+            'PlateLocSideInches':    'plate_loc_side_inches',
+            'IsFastball':            'is_fastball',
+            'IsFinish':              'is_finish',
+            'PitchScore':            'pitch_score'
+        })[[
+            'pitcher_name','tagged_pitch_type',
+            'plate_loc_height_inches','plate_loc_side_inches',
+            'is_fastball','is_finish','pitch_score'
+        ]]
         records['session_date'] = session_date
+
+        # convert numpy types → Python built‑ins
+        records = records.applymap(
+            lambda x: x.item() if isinstance(x, np.generic) else x
+        )
+        payload = records.to_dict(orient='records')
 
         resp = requests.post(
             f"{SUPABASE_URL}/rest/v1/pitches",
             headers=headers,
-            json=records.to_dict(orient='records')
+            json=payload
         )
-        if resp.status_code not in (200, 201):
+        if resp.status_code not in (200,201):
             st.error("⚠️ Failed to save pitches:", resp.text)
+        else:
+            st.success("✅ Stored pitches to database!")
 
-
-        # ── UI: Filter and DataFrame ──
-        selected_pitcher = st.selectbox(
-            "🎯 Filter pitches by pitcher",
+        # show raw pitch table & zone plot
+        sel = st.selectbox(
+            "🎯 Filter by pitcher",
             ["All"] + sorted(df_filtered['Pitcher'].unique().tolist())
         )
-        view_df = df_filtered if selected_pitcher == "All" else df_filtered[df_filtered['Pitcher'] == selected_pitcher]
+        view_df = df_filtered if sel=="All" else df_filtered[df_filtered['Pitcher']==sel]
 
         st.subheader("📊 Pitch-Level Data")
         st.dataframe(view_df[[
-            'Pitcher', 'TaggedPitchType',
-            'PlateLocHeightInches', 'PlateLocSideInches',
-            'IsFinish', 'PitchScore'
+            'Pitcher','TaggedPitchType',
+            'PlateLocHeightInches','PlateLocSideInches',
+            'IsFinish','PitchScore'
         ]])
 
-        # ── Strike Zone Scatter Plot ──
-        st.subheader("🎯 Strike Zone Plot")
-        if selected_pitcher == "All":
-            st.info("Select a specific pitcher to view their strike zone plot.")
-        else:
-            fig, ax = plt.subplots(figsize=(6, 8))
-            pitcher_df = view_df.copy()
-            for _, row in pitcher_df.iterrows():
-                x, y = row['PlateLocSideInches'], row['PlateLocHeightInches']
-                is_fb, score, is_finish = row['IsFastball'], row['PitchScore'], row['IsFinish']
-                in_fb_buffer    = is_fb and ZONE_TOP < y <= FB_BUFFER_TOP
-                in_nfb_buffer   = not is_fb and NFB_BUFFER_BOTTOM <= y < ZONE_BOTTOM
+        if sel!="All":
+            st.subheader("🎯 Strike Zone Plot")
+            fig, ax = plt.subplots(figsize=(6,8))
+            for _, row in view_df.iterrows():
+                x,y = row['PlateLocSideInches'], row['PlateLocHeightInches']
+                score,is_fb,is_fin = row['PitchScore'], row['IsFastball'], row['IsFinish']
+                in_fb_buf = is_fb and ZONE_TOP < y <= FB_BUFFER_TOP
+                in_nf_buf = not is_fb and NFB_BUFFER_BOTTOM <= y < ZONE_BOTTOM
 
-                if score >= 3 and is_finish and (in_fb_buffer or in_nfb_buffer):
-                    ax.plot(x, y, marker='s', color='green', markersize=14)
-                elif score == 0:
-                    ax.text(x, y, "X",
-                            color='red' if is_fb else 'blue',
-                            fontsize=14, ha='center', va='center')
-                elif score == 1:
-                    ax.plot(x, y,
-                            marker='o',
-                            color='red' if is_fb else 'blue',
-                            markersize=10,
-                            markerfacecolor='none')
-                elif score == 2:
-                    ax.plot(x, y, marker='o',
-                            color='red' if is_fb else 'blue',
-                            markersize=14)
+                if score>=3 and is_fin and (in_fb_buf or in_nf_buf):
+                    ax.plot(x,y,marker='s',color='green',markersize=14)
+                elif score==0:
+                    ax.text(x,y,"X",color='red' if is_fb else 'blue',ha='center',va='center')
+                elif score==1:
+                    ax.plot(x,y,marker='o',color=('red' if is_fb else 'blue'),
+                            markersize=10,markerfacecolor='none')
+                else:
+                    ax.plot(x,y,marker='o',color=('red' if is_fb else 'blue'),markersize=14)
 
+            # draw zone
             ax.add_patch(patches.Rectangle(
                 (ZONE_SIDE_LEFT, ZONE_BOTTOM),
                 ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT,
                 ZONE_TOP - ZONE_BOTTOM,
-                edgecolor='black', fill=False, linewidth=2
+                fill=False,edgecolor='black',linewidth=2
             ))
-            ax.set_xlim(-10, 10)
-            ax.set_ylim(18, 42)
-            ax.set_xlabel("Plate Side (in)")
-            ax.set_ylabel("Plate Height (in)")
-            ax.set_title(f"{selected_pitcher} Strike Zone")
-            ax.grid(True, linestyle='--', alpha=0.3)
-            ax.set_facecolor("#f9f9f9")
-
-            legend_elements = [
-                Line2D([0], [0], marker='o', color='red',   label='FB: 1-2 pts', markerfacecolor='red', markersize=10),
-                Line2D([0], [0], marker='o', color='blue',  label='NFB: 1-2 pts', markerfacecolor='blue', markersize=10),
-                Line2D([0], [0], marker='s', color='green',label='Finish Bonus', linestyle='None', markersize=14),
-                Line2D([0], [0], marker='X', color='red',  label='FB: 0 pts', linestyle='None', markersize=10),
-                Line2D([0], [0], marker='X', color='blue', label='NFB: 0 pts', linestyle='None', markersize=10),
-            ]
-            ax.legend(handles=legend_elements, loc='upper right', frameon=True)
+            ax.set_xlim(-10,10); ax.set_ylim(18,42)
+            ax.set_xlabel("Side (in)"); ax.set_ylabel("Height (in)")
+            ax.set_title(f"{sel} Strike Zone")
             st.pyplot(fig)
 
+# 2) View Past Sessions
 elif page == "📖 View Past Sessions":
     st.title("📖 Past Pitcher Sessions")
-    if st.button("🔄 Load Past Sessions", key="load_past_sessions_button"):
-        # 1) Confirm the request URL
-        st.write("Requesting URL:", f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*")
-
-# 2) Show exactly what headers you’re sending
-        st.write("Outgoing headers:", headers)
-
-# 3) (Optional) Show repr of the key to catch stray whitespace
-        st.write("Key repr:", repr(SUPABASE_SERVICE_ROLE_KEY))
-
-        response = requests.get(f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*", headers=headers)
-        if response.status_code == 200:
-            past_sessions = pd.DataFrame(response.json())
-            st.dataframe(past_sessions)
+    if st.button("🔄 Load Past Sessions"):
+        r = requests.get(f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=*", headers=headers)
+        if r.status_code == 200:
+            df = pd.DataFrame(r.json())
+            st.dataframe(df)
         else:
             st.error("Failed to load sessions")
-            st.write(response.status_code, response.text)
+            st.write(r.status_code, r.text)
 
+# 3) Historical Trends
 elif page == "📈 Historical Trends":
     st.title("📈 Player Dashboard")
 
-    # --- A) Load session summaries for dropdown & date bounds
+    # A) load session summaries
     r = requests.get(
         f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=session_date,pitcher_name,ppp",
         headers=headers
     )
     if r.status_code != 200:
-        st.error("Failed to load sessions")
-        st.stop()
+        st.error("Failed to load sessions"); st.stop()
     sessions = pd.DataFrame(r.json())
     sessions['session_date'] = pd.to_datetime(sessions['session_date']).dt.date
-
     if sessions.empty:
-        st.info("No sessions yet.")
-        st.stop()
+        st.info("No sessions yet."); st.stop()
 
-    # --- B) Controls: player, date range, pitch types, heatmap mode
+    # B) controls
     player = st.selectbox("🎯 Select Player", sorted(sessions['pitcher_name'].unique()))
-    dmin, dmax = sessions['session_date'].min(), sessions['session_date'].max()
-    start_date, end_date = st.date_input(
-        "📅 Date range", value=(dmin, dmax),
-        min_value=dmin, max_value=dmax
+    dmin,dmax = sessions['session_date'].min(), sessions['session_date'].max()
+    start_date,end_date = st.date_input(
+        "📅 Date range", value=(dmin,dmax), min_value=dmin, max_value=dmax
     )
-
-    pitch_choices = ["All", "FB", "SI", "CH", "SPL", "CB", "NFB"]
+    pitch_choices = ["All","FB","SI","CH","SPL","CB","NFB"]
     sel_types = st.multiselect("⚾ Pitch Types", pitch_choices, default=["All"])
-    mode = st.radio("🔥 Heatmap mode", ["Density", "Quality"])
+    mode = st.radio("🔥 Heatmap mode", ["Density","Quality"])
 
-    # --- C) Fetch the raw pitches matching those filters
-    filters = [
+    # C) fetch raw pitches
+    flts = [
         f"pitcher_name=eq.{player}",
         f"session_date=gte.{start_date}",
         f"session_date=lte.{end_date}"
     ]
-    # build pitch-type filter
     type_map = {
-        "FB": r"^4S$",
-        "SI": r"(Sinker|2S)",
-        "CH": r"ChangeUp",
-        "SPL": r"Splitter",
-        "CB": r"Curve",
-        "NFB": None
+        "FB": "^4S$",
+        "SI": "(Sinker|2S)",
+        "CH": "ChangeUp",
+        "SPL":"Splitter",
+        "CB":"Curve",
+        "NFB":None
     }
     if "All" not in sel_types:
         if "NFB" in sel_types:
-            fb_re = "|".join([type_map["FB"], type_map["SI"]])
-            filters.append(f"not(tagged_pitch_type.ilike.*{fb_re}*)")
+            fb_re = "|".join([type_map["FB"],type_map["SI"]])
+            flts.append(f"not(tagged_pitch_type.ilike.*{fb_re}*)")
         else:
-            regex = "|".join(type_map[t] for t in sel_types)
-            filters.append(f"tagged_pitch_type.ilike.*{regex}*")
+            rex = "|".join(type_map[t] for t in sel_types)
+            flts.append(f"tagged_pitch_type.ilike.*{rex}*")
 
-    qstr = "&".join(filters)
+    qstr = "&".join(flts)
     p = requests.get(
-        f"{SUPABASE_URL}/rest/v1/pitches?"
-        f"select=*,pitch_score,plate_loc_side_inches,plate_loc_height_inches&{qstr}",
+        f"{SUPABASE_URL}/rest/v1/pitches?select=*,pitch_score,plate_loc_side_inches,plate_loc_height_inches&{qstr}",
         headers=headers
     )
     pitches = pd.DataFrame(p.json())
-
-    # ── DEBUG: see what actually came back ──
-    st.write("🔍 Raw /pitches?… URL:", p.url)
-    st.write("🔍 Number of pitches fetched:", len(pitches))
-    st.write("🔍 Sample rows:", pitches[['plate_loc_side_inches','plate_loc_height_inches','pitch_score']].head())
-
     if pitches.empty:
-        st.warning("No pitches in that selection.")
-        st.stop()
+        st.warning("No pitches in that selection."); st.stop()
 
-    # --- D) Layout & Plots
-    col1, col2 = st.columns(2)
+    # D) layout & plots
+    col1,col2 = st.columns(2)
 
-    # D1) PPP Trend with letter grades
+    # D1) PPP trend + grades
     with col1:
-        player_sess = (
-            sessions[
-                (sessions['pitcher_name']==player) &
-                (sessions['session_date'].between(start_date, end_date))
-            ]
-            .sort_values('session_date')
-        )
-        fig, ax = plt.subplots(figsize=(6,4))
-        xs, ys = player_sess['session_date'], player_sess['ppp']
-        def grade(p): return ("A" if p>.8 else "B" if p>.65 else "C" if p>.5 else "D" if p>.35 else "F")
-        colors = {"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}
-        for d, pv in zip(xs, ys):
-            g = grade(pv)
-            ax.scatter(d, pv, color=colors[g], s=100)
-            ax.text(d, pv+0.02, g, ha='center')
-        ax.set_xticks(xs)
-        fig.autofmt_xdate()
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Points Per Pitch")
+        ps = sessions[
+            (sessions['pitcher_name']==player) &
+            sessions['session_date'].between(start_date,end_date)
+        ].sort_values('session_date')
+        fig,ax = plt.subplots(figsize=(6,4))
+        xs,ys = ps['session_date'], ps['ppp']
+        for d,v in zip(xs,ys):
+            g = letter_grade(v)
+            ax.scatter(d,v,color={
+                "A":"green","B":"blue","C":"orange","D":"purple","F":"red"
+            }[g],s=100)
+            ax.text(d,v+0.02,g,ha='center')
+        ax.set_xticks(xs); fig.autofmt_xdate()
+        ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
         ax.set_title(f"{player} — PPP Trend")
         st.pyplot(fig)
 
-    # D2) Strike‑Zone Heatmap
+    # D2) strike‑zone heatmap
     with col2:
-        fig2, ax2 = plt.subplots(figsize=(6,6))
+        fig2,ax2 = plt.subplots(figsize=(6,6))
         x = pitches['plate_loc_side_inches']
         y = pitches['plate_loc_height_inches']
-        if mode == "Density":
-            hb = ax2.hexbin(x, y, gridsize=20, mincnt=1)
-            fig2.colorbar(hb, ax=ax2, label="Pitch count")
+        if mode=="Density":
+            hb = ax2.hexbin(x,y,gridsize=20,mincnt=1)
+            fig2.colorbar(hb,ax=ax2,label="Pitch count")
         else:
             hb = ax2.hexbin(
-                x, y,
+                x,y,
                 C=pitches['pitch_score'],
                 reduce_C_function=np.mean,
-                gridsize=20,
-                mincnt=1
+                gridsize=20,mincnt=1
             )
-            fig2.colorbar(hb, ax=ax2, label="Avg PitchScore")
+            fig2.colorbar(hb,ax=ax2,label="Avg PitchScore")
         ax2.add_patch(patches.Rectangle(
-            (ZONE_SIDE_LEFT, ZONE_BOTTOM),
+            (ZONE_SIDE_LEFT,ZONE_BOTTOM),
             ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT,
             ZONE_TOP - ZONE_BOTTOM,
-            fill=False, edgecolor='black', linewidth=2
+            fill=False,edgecolor='black',linewidth=2
         ))
-        ax2.set_xlim(ZONE_SIDE_LEFT*1.2, ZONE_SIDE_RIGHT*1.2)
-        ax2.set_ylim(NFB_BUFFER_BOTTOM*0.9, FB_BUFFER_TOP*1.05)
-        ax2.set_xlabel("Side (in)")
-        ax2.set_ylabel("Height (in)")
+        ax2.set_xlim(ZONE_SIDE_LEFT*1.2,ZONE_SIDE_RIGHT*1.2)
+        ax2.set_ylim(NFB_BUFFER_BOTTOM*0.9,FB_BUFFER_TOP*1.05)
+        ax2.set_xlabel("Side (in)"); ax2.set_ylabel("Height (in)")
         ax2.set_title(f"{player} — Strike‑Zone HeatMap ({mode})")
         st.pyplot(fig2)
+
 
 
 
