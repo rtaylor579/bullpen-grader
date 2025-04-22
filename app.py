@@ -168,7 +168,8 @@ if page == "➕ Upload New Session":
             st.error("⚠️ Failed to save session summary:", resp2.status_code, resp2.text)
         else:
             st.success("✅ Session summary saved!")
-
+ # ── DEBUG: what did we send to Supabase?
+            st.write("🔍 Summary payload:", summary.to_dict(orient='records'))
 
         # show raw pitch table & zone plot
         sel = st.selectbox(
