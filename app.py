@@ -216,6 +216,12 @@ elif page == "📖 View Past Sessions":
 # Historical Trends
 elif page == "📈 Historical Trends":
     st.title("📈 Player Dashboard")
+    # ── DEBUG: show every pitch stored in the DB ──
+    all_p = requests.get(
+        f"{SUPABASE_URL}/rest/v1/pitches?select=pitcher_name,session_date",
+        headers=headers
+
+    st.write("🔍 All pitches in DB (name, date):", all_p.json())
     r = requests.get(f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=session_date,pitcher_name,ppp", headers=headers)
 
     # ── DEBUG: inspect the raw response ──
