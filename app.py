@@ -218,25 +218,30 @@ elif page == "📈 Historical Trends":
 
     # 1) Load *all* raw pitches and parse dates
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/pitches?select=pitcher_name,session_date,pitch_score,"
+        f"{SUPABASE_URL}/rest/v1/pitches?"
+        "select=pitcher_name,session_date,pitch_score,"
         "plate_loc_side_inches,plate_loc_height_inches",
         headers=headers
     )
     if resp.status_code != 200:
-        st.error("Failed to load raw pitches"); st.stop()
+        st.error("Failed to load pitches"); st.stop()
+
     df = pd.DataFrame(resp.json())
     if df.empty:
         st.info("No sessions yet. Upload a CSV first!"); st.stop()
 
     df['session_date'] = pd.to_datetime(df['session_date']).dt.date
 
-    # 2) Build session summaries on the fly
+    # 2) Build session summaries on the fly (PPP per date/player)
     sessions = (
         df
         .groupby(['pitcher_name', 'session_date'])['pitch_score']
         .agg(ppp=lambda s: s.sum() / len(s))
         .reset_index()
     )
+
+    # DEBUG: see how many sessions we have
+    st.write(f"🔍 Total session‑dates: {len(sessions)}")
 
     # 3) Player + date controls
     player = st.selectbox("🎯 Select Player", sorted(sessions['pitcher_name'].unique()))
