@@ -265,7 +265,7 @@ elif page == "📈 Historical Trends":
         for d, v in zip(player_sess['session_date'], player_sess['ppp']):
             g = letter_grade(v)
             ax.scatter(d, v, color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
-            ax.annotate(g,(d, v),xytext=(5, 0),textcoords='offset points',ha='left',va='center')
+            ax.annotate(g,(d, v),xytext=(7, 0),textcoords='offset points',ha='left',va='center')
         ax.set_xticks(player_sess['session_date'])
         fig.autofmt_xdate()
         ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
