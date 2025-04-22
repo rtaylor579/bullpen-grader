@@ -217,24 +217,39 @@ elif page == "📖 View Past Sessions":
 elif page == "📈 Historical Trends":
     st.title("📈 Player Dashboard")
 
-    # 1) Fetch *all* raw pitches (override default 1 000‑row page)
+    # 1) Fetch *all* raw pitches via pagination (1000 rows per page)
     url = f"{SUPABASE_URL}/rest/v1/pitches"
-    params = {
-        "select": "pitcher_name,session_date,pitch_score,plate_loc_side_inches,plate_loc_height_inches,tagged_pitch_type",
-        "limit": 20000,
-    }
-    # Supabase paginates at 1 000 rows by default — this Range header forces up to 20 000
-    range_header = {**headers, "Range": "0-20000"}
-    resp = requests.get(url, headers=range_header, params=params)
-    if resp.status_code != 200:
-        st.error("Failed to load pitches"); st.stop()
-    all_json = resp.json()
+    select_cols = (
+        "pitcher_name,session_date,"
+        "pitch_score,plate_loc_side_inches,"
+        "plate_loc_height_inches,tagged_pitch_type"
+    )
+    all_json = []
+    limit = 1000
+    offset = 0
+
+    while True:
+        params = {
+            "select": select_cols,
+            "limit": limit,
+            "offset": offset
+        }
+        resp = requests.get(url, headers=headers, params=params)
+        if resp.status_code != 200:
+            st.error("Failed to load pitches"); st.stop()
+        chunk = resp.json()
+        if not chunk:
+            break
+        all_json.extend(chunk)
+        offset += len(chunk)
+
     st.write("🔍 Total raw pitch rows fetched:", len(all_json))
 
     # 2) Load into DataFrame & parse dates
     df = pd.DataFrame(all_json)
     df['session_date'] = pd.to_datetime(df['session_date']).dt.date
-    st.write("🔍 Date range in DB:", df['session_date'].min(), "to", df['session_date'].max())
+    st.write("🔍 Date range in DB:", df['session_date'].min(),
+             "to", df['session_date'].max())
 
     # 3) Build session summaries
     sessions = (
@@ -297,13 +312,17 @@ elif page == "📈 Historical Trends":
         (df['session_date'] <= end_date)
     )
     if "All" not in sel_types:
-        type_map = {"FB":"^4S$","SI":"(Sinker|2S)","CH":"ChangeUp","SPL":"Splitter","CB":"Curve"}
+        type_map = {
+            "FB":"^4S$", "SI":"(Sinker|2S)", "CH":"ChangeUp",
+            "SPL":"Splitter", "CB":"Curve"
+        }
         if "NFB" in sel_types:
             fb_re = "|".join([type_map["FB"], type_map["SI"]])
             mask &= ~df['tagged_pitch_type'].str.contains(fb_re, case=False, regex=True)
         else:
             regex = "|".join(type_map[t] for t in sel_types if t in type_map)
             mask &= df['tagged_pitch_type'].str.contains(regex, case=False, regex=True)
+
     filtered_pitches = df[mask]
     st.write(f"🔍 Pitches after all filters:", len(filtered_pitches))
     if filtered_pitches.empty:
