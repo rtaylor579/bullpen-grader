@@ -258,29 +258,35 @@ elif page == "📈 Historical Trends":
         (sessions['session_date'].between(start_date, end_date))
     ].sort_values('session_date')
 
-    # 6) Plot PPP trend with evenly‑spaced dates and right‑of‑point labels
+    # 6) Plot PPP trend as a categorical (numeric) x-axis
     col1, col2 = st.columns(2)
     with col1:
         fig, ax = plt.subplots(figsize=(6,4))
-        for d, v in zip(player_sess['session_date'], player_sess['ppp']):
+
+        # Numeric x coords, one per session
+        xs = list(range(len(player_sess)))
+        ys = player_sess['ppp'].tolist()
+        dates = [d.strftime("%Y-%m-%d") for d in player_sess['session_date']]
+
+        # Scatter + letter annotations
+        for i, v in zip(xs, ys):
             g = letter_grade(v)
-            ax.scatter(d, v, color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
-            ax.text(d, v + 0.02, g, ha='center')
-    from matplotlib.ticker import NullLocator
+            ax.scatter(i, v, color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
+            ax.text(i + 0.05, v + 0.005, g, ha='left', va='center')
 
-    ax.set_xticks(player_sess['session_date'])
-    ax.set_xticklabels(
-        [d.strftime("%Y-%m-%d") for d in player_sess['session_date']],
-        rotation=45, ha='right'
-    )
-    # ── TURN OFF MINOR TICKS ──
-    ax.xaxis.set_minor_locator(NullLocator())
-    ax.minorticks_off()
+        # Custom ticks & labels
+        ax.set_xticks(xs)
+        ax.set_xticklabels(dates, rotation=45, ha='right')
 
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Points Per Pitch")
-    ax.set_title(f"{player} — PPP Trend")
-    st.pyplot(fig)
+        # Disable any minor ticks
+        ax.xaxis.set_minor_locator(plt.NullLocator())
+        ax.minorticks_off()
+
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Points Per Pitch")
+        ax.set_title(f"{player} — PPP Trend")
+        st.pyplot(fig)
+
 
 
 
