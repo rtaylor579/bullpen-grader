@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.lines import Line2D
+from matplotlib.ticker import NullLocator
 from datetime import date
 import requests
 import json
@@ -261,28 +262,44 @@ elif page == "📈 Historical Trends":
         (sessions['session_date'].between(start_date, end_date))
     ].sort_values('session_date')
 
-    # 6) Plot PPP trend
-    col1, col2 = st.columns(2)
-    with col1:
-        fig, ax = plt.subplots(figsize=(6,4))
-        dates = player_sess['session_date'].dt.strftime("%Y-%m-%d").tolist()
-        xs = list(range(len(dates)))
-        ys = player_sess['ppp'].tolist()
+from matplotlib.ticker import NullLocator
 
-        for i, v in zip(xs, ys):
-            g = letter_grade(v)
-            ax.scatter(i, v,  color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
-            ax.text(i + 0.05, v + 0.005, g, ha='left', va='center')
-        
-        ax.set_xticks(xs)
-        ax.set_xticklabels(dates, rotation=45, ha='right')
-        ax.xaxis.set_minor_locator(plt.NullLocator())
-        ax.minorticks_off()
-        
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Points Per Pitch")
-        ax.set_title(f"{player} — PPP Trend")
-        st.pyplot(fig)
+col1, col2 = st.columns(2)
+with col1:
+    fig, ax = plt.subplots(figsize=(6,4))
+
+    # Numeric x positions
+    xs = list(range(len(player_sess)))
+    ys = player_sess['ppp'].tolist()
+
+    # Manually format each session_date to YYYY-MM-DD
+    dates = [
+        d.strftime("%Y-%m-%d") if hasattr(d, "strftime") else str(d)
+        for d in player_sess['session_date']
+    ]
+
+    # Color mapping
+    colors = {"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}
+
+    # Plot & annotate
+    for i, v in zip(xs, ys):
+        g = letter_grade(v)
+        ax.scatter(i, v, color=colors[g], s=100)
+        ax.text(i + 0.05, v + 0.005, g, ha='left', va='center')
+
+    # Set custom ticks & labels
+    ax.set_xticks(xs)
+    ax.set_xticklabels(dates, rotation=45, ha='right')
+
+    # Disable minor ticks (prevents Matplotlib errors)
+    ax.xaxis.set_minor_locator(NullLocator())
+    ax.minorticks_off()
+
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Points Per Pitch")
+    ax.set_title(f"{player} — PPP Trend")
+    st.pyplot(fig)
+
 
     # 7) Now filter the same raw df for the heatmap
     mask = (
