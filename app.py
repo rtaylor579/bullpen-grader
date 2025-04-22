@@ -271,7 +271,7 @@ elif page == "📈 Historical Trends":
 
         for i, v in zip(xs, ys):
             g = letter_grade(v)
-            ax.scatter(i, v, color=… , s=100)
+            ax.scatter(i, v,  color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
             ax.text(i + 0.05, v + 0.005, g, ha='left', va='center')
         
         ax.set_xticks(xs)
