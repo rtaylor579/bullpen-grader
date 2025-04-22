@@ -216,61 +216,50 @@ elif page == "📖 View Past Sessions":
 elif page == "📈 Historical Trends":
     st.title("📈 Player Dashboard")
 
-    # ── 1) Try loading any pre‑computed sessions (optional) ──
-    r = requests.get(
-        f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=session_date,pitcher_name,ppp",
+    # 1) Load *all* raw pitches and parse dates
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/pitches?select=pitcher_name,session_date,pitch_score,"
+        "plate_loc_side_inches,plate_loc_height_inches",
         headers=headers
     )
-    if r.status_code == 200:
-        sessions = pd.DataFrame(r.json())
-        # If you already have summary rows, use them
-        if not sessions.empty:
-            sessions['session_date'] = pd.to_datetime(sessions['session_date']).dt.date
-    else:
-        sessions = pd.DataFrame()
+    if resp.status_code != 200:
+        st.error("Failed to load raw pitches"); st.stop()
+    df = pd.DataFrame(resp.json())
+    if df.empty:
+        st.info("No sessions yet. Upload a CSV first!"); st.stop()
 
-    # ── 2) If no summaries exist, build them from pitches ──
-    if sessions.empty:
-        p = requests.get(
-            f"{SUPABASE_URL}/rest/v1/pitches?select=pitcher_name,session_date,pitch_score",
-            headers=headers
-        )
-        df_pitch = pd.DataFrame(p.json())
-        if df_pitch.empty:
-            st.info("No sessions yet.")
-            st.stop()
-        df_pitch['session_date'] = pd.to_datetime(df_pitch['session_date']).dt.date
+    df['session_date'] = pd.to_datetime(df['session_date']).dt.date
 
-        # group by pitcher & date to compute PPP
-        sessions = (
-            df_pitch
-            .groupby(['pitcher_name', 'session_date'])['pitch_score']
-            .agg(ppp=lambda s: s.sum() / len(s))
-            .reset_index()
-        )
-
-    # ── 3) Now you have a sessions DataFrame to drive the UI ──
-    player = st.selectbox(
-        "🎯 Select Player",
-        sorted(sessions['pitcher_name'].unique())
+    # 2) Build session summaries on the fly
+    sessions = (
+        df
+        .groupby(['pitcher_name', 'session_date'])['pitch_score']
+        .agg(ppp=lambda s: s.sum() / len(s))
+        .reset_index()
     )
+
+    # 3) Player + date controls
+    player = st.selectbox("🎯 Select Player", sorted(sessions['pitcher_name'].unique()))
     dmin, dmax = sessions['session_date'].min(), sessions['session_date'].max()
     start_date, end_date = st.date_input(
         "📅 Date range",
-        value=(dmin, dmax), min_value=dmin, max_value=dmax
+        value=(dmin, dmax),
+        min_value=dmin, max_value=dmax
     )
-    pitch_choices = ["All","FB","SI","CH","SPL","CB","NFB"]
-    sel_types = st.multiselect("⚾ Pitch Types", pitch_choices, default=["All"])
-    mode = st.radio("🔥 Heatmap mode", ["Density","Quality"])
 
-    # ── 4) Filter sessions for the PPP trend plot ──
+    # 4) Pitch‑type & mode controls
+    pitch_choices = ["All","FB","SI","CH","SPL","CB","NFB"]
+    sel_types    = st.multiselect("⚾ Pitch Types", pitch_choices, default=["All"])
+    mode         = st.radio("🔥 Heatmap mode", ["Density","Quality"])
+
+    # 5) Filter sessions for the PPP plot
     player_sess = sessions[
         (sessions['pitcher_name'] == player) &
         (sessions['session_date'].between(start_date, end_date))
     ].sort_values('session_date')
 
+    # 6) Plot PPP trend
     col1, col2 = st.columns(2)
-
     with col1:
         fig, ax = plt.subplots(figsize=(6,4))
         for d, v in zip(player_sess['session_date'], player_sess['ppp']):
@@ -279,47 +268,41 @@ elif page == "📈 Historical Trends":
             ax.text(d, v + 0.02, g, ha='center')
         ax.set_xticks(player_sess['session_date'])
         fig.autofmt_xdate()
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Points Per Pitch")
+        ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
         ax.set_title(f"{player} — PPP Trend")
         st.pyplot(fig)
 
-    # ── 5) Now fetch & filter raw pitches for the heat map ──
-    base_url = f"{SUPABASE_URL}/rest/v1/pitches"
-    params = [
-        ("select", "*,pitch_score,plate_loc_side_inches,plate_loc_height_inches"),
-        ("pitcher_name", f"eq.{player}"),
-        ("session_date", f"gte.{start_date}"),
-        ("session_date", f"lte.{end_date}")
-    ]
-    type_map = {"FB":"^4S$","SI":"(Sinker|2S)","CH":"ChangeUp","SPL":"Splitter","CB":"Curve","NFB":None}
+    # 7) Now filter the same raw df for the heatmap
+    mask = (
+        (df['pitcher_name'] == player) &
+        (df['session_date'] >= start_date) &
+        (df['session_date'] <= end_date)
+    )
     if "All" not in sel_types:
+        type_map = {"FB":"^4S$","SI":"(Sinker|2S)","CH":"ChangeUp","SPL":"Splitter","CB":"Curve"}
         if "NFB" in sel_types:
             fb_re = "|".join([type_map["FB"], type_map["SI"]])
-            params.append(("tagged_pitch_type", f"not.ilike.*{fb_re}*"))
+            mask &= ~df['tagged_pitch_type'].str.contains(fb_re, case=False, regex=True)
         else:
-            regex = "|".join(type_map[t] for t in sel_types)
-            params.append(("tagged_pitch_type", f"ilike.*{regex}*"))
+            regex = "|".join(type_map[t] for t in sel_types if t in type_map)
+            mask &= df['tagged_pitch_type'].str.contains(regex, case=False, regex=True)
 
-    p = requests.get(base_url, headers=headers, params=params)
-    pitches = pd.DataFrame(p.json())
+    pitches = df[mask]
     if pitches.empty:
-        st.warning("No pitches in that selection.")
-        st.stop()
+        st.warning("No pitches in that selection."); st.stop()
 
+    # 8) Draw the hex‑bin heatmap
     with col2:
         fig2, ax2 = plt.subplots(figsize=(6,6))
-        x, y = pitches['plate_loc_side_inches'], pitches['plate_loc_height_inches']
+        x = pitches['plate_loc_side_inches']
+        y = pitches['plate_loc_height_inches']
         if mode == "Density":
             hb = ax2.hexbin(x, y, gridsize=20, mincnt=1)
-            fig2.colorbar(hb, ax=ax2, label="Pitch count")
+            fig2.colorbar(hb, ax=ax2, label="Count")
         else:
-            hb = ax2.hexbin(
-                x, y,
-                C=pitches['pitch_score'],
-                reduce_C_function=np.mean,
-                gridsize=20, mincnt=1
-            )
+            hb = ax2.hexbin(x, y, C=pitches['pitch_score'],
+                            reduce_C_function=np.mean,
+                            gridsize=20, mincnt=1)
             fig2.colorbar(hb, ax=ax2, label="Avg PitchScore")
         ax2.add_patch(patches.Rectangle(
             (ZONE_SIDE_LEFT, ZONE_BOTTOM),
@@ -329,9 +312,6 @@ elif page == "📈 Historical Trends":
         ))
         ax2.set_xlim(ZONE_SIDE_LEFT*1.2, ZONE_SIDE_RIGHT*1.2)
         ax2.set_ylim(NFB_BUFFER_BOTTOM*0.9, FB_BUFFER_TOP*1.05)
-        ax2.set_xlabel("Side (in)")
-        ax2.set_ylabel("Height (in)")
+        ax2.set_xlabel("Side (in)"); ax2.set_ylabel("Height (in)")
         ax2.set_title(f"{player} — Strike‑Zone HeatMap ({mode})")
         st.pyplot(fig2)
-
-
