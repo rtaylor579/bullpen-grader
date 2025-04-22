@@ -217,15 +217,15 @@ elif page == "📖 View Past Sessions":
 elif page == "📈 Historical Trends":
     st.title("📈 Player Dashboard")
 
-     # 1) Fetch *all* raw pitches (override default 1 000‑row page)
-     url = f"{SUPABASE_URL}/rest/v1/pitches"
-     params = {
-         "select": "pitcher_name,session_date,pitch_score,plate_loc_side_inches,plate_loc_height_inches,tagged_pitch_type",
-         "limit": 20000
-     }
-     # Supabase paginates at 1 000 rows by default — this Range header forces up to 20 000
-     range_header = {**headers, "Range": "0-20000"}
-     resp = requests.get(url, headers=range_header, params=params)
+    # 1) Fetch *all* raw pitches (override default 1 000‑row page)
+    url = f"{SUPABASE_URL}/rest/v1/pitches"
+    params = {
+        "select": "pitcher_name,session_date,pitch_score,plate_loc_side_inches,plate_loc_height_inches,tagged_pitch_type",
+        "limit": 20000,
+    }
+    # Supabase paginates at 1 000 rows by default — this Range header forces up to 20 000
+    range_header = {**headers, "Range": "0-20000"}
+    resp = requests.get(url, headers=range_header, params=params)
     if resp.status_code != 200:
         st.error("Failed to load pitches"); st.stop()
     all_json = resp.json()
@@ -283,8 +283,10 @@ elif page == "📈 Historical Trends":
             ax.text(i + 0.05, v + 0.005, g, ha='left', va='center')
         ax.set_xticks(xs)
         ax.set_xticklabels(dates, rotation=45, ha='right')
-        ax.xaxis.set_minor_locator(NullLocator()); ax.minorticks_off()
-        ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
+        ax.xaxis.set_minor_locator(NullLocator())
+        ax.minorticks_off()
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Points Per Pitch")
         ax.set_title(f"{player} — PPP Trend")
         st.pyplot(fig)
 
@@ -310,7 +312,8 @@ elif page == "📈 Historical Trends":
     # 9) Draw the hex‑bin heatmap
     with col2:
         fig2, ax2 = plt.subplots(figsize=(6,6))
-        x, y = filtered_pitches['plate_loc_side_inches'], filtered_pitches['plate_loc_height_inches']
+        x = filtered_pitches['plate_loc_side_inches']
+        y = filtered_pitches['plate_loc_height_inches']
         if mode == "Density":
             hb = ax2.hexbin(x, y, gridsize=20, mincnt=1)
             fig2.colorbar(hb, ax=ax2, label="Count")
@@ -330,6 +333,7 @@ elif page == "📈 Historical Trends":
         ))
         ax2.set_xlim(ZONE_SIDE_LEFT * 1.2, ZONE_SIDE_RIGHT * 1.2)
         ax2.set_ylim(NFB_BUFFER_BOTTOM * 0.9, FB_BUFFER_TOP * 1.05)
-        ax2.set_xlabel("Side (in)"); ax2.set_ylabel("Height (in)")
+        ax2.set_xlabel("Side (in)")
+        ax2.set_ylabel("Height (in)")
         ax2.set_title(f"{player} — Strike‑Zone HeatMap ({mode})")
         st.pyplot(fig2)
