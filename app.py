@@ -266,11 +266,16 @@ elif page == "📈 Historical Trends":
             g = letter_grade(v)
             ax.scatter(d, v, color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
             ax.text(d, v + 0.02, g, ha='center')
-        ax.set_xticks(player_sess['session_date'])
-        fig.autofmt_xdate()
-        ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
-        ax.set_title(f"{player} — PPP Trend")
-        st.pyplot(fig)
+    ax.set_xticks(player_sess['session_date'])
+    # rotate labels manually instead of autopformatting
+    ax.set_xticklabels(
+        [d.strftime("%Y-%m-%d") for d in player_sess['session_date']],
+        rotation=45, ha='right'
+    )
+    ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
+    ax.set_title(f"{player} — PPP Trend")
+    st.pyplot(fig)
+
 
     # 7) Now filter the same raw df for the heatmap
     mask = (
