@@ -266,8 +266,12 @@ elif page == "📈 Historical Trends":
 
     # do the GET with params
     p = requests.get(base_url, headers=headers, params=params)
-    st.write("🔍 Pitches GET URL:", p.url)   # debug: see the fully encoded URL
-    pitches = pd.DataFrame(p.json())
+
+    st.write("Pitches status code:", p.json)
+    try:
+        st.write("Pitches JSON:", p.json())
+    except Exception as e:
+        st.write("JSON decode error:", str(e))
 
     pitches = pd.DataFrame(p.json())
     if pitches.empty:
