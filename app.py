@@ -217,9 +217,20 @@ elif page == "📖 View Past Sessions":
 elif page == "📈 Historical Trends":
     st.title("📈 Player Dashboard")
     r = requests.get(f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=session_date,pitcher_name,ppp", headers=headers)
+
+    # ── DEBUG: inspect the raw response ──
+    st.write("🔍 Sessions GET URL:", r.url)
+    st.write("🔍 Sessions status code:", r.status_code)
+    st.write("🔍 Sessions JSON:", r.json())
+    
     if r.status_code != 200:
         st.error("Failed to load sessions"); st.stop()
+        
     sessions = pd.DataFrame(r.json())
+    # ── DEBUG: see DataFrame head/columns ──
+    st.write("🔍 Sessions DataFrame columns:", sessions.columns.tolist())
+    st.write("🔍 Sessions head:", sessions.head())
+    
     sessions['session_date'] = pd.to_datetime(sessions['session_date']).dt.date
     if sessions.empty:
         st.info("No sessions yet."); st.stop()
@@ -232,7 +243,7 @@ elif page == "📈 Historical Trends":
     mode = st.radio("🔥 Heatmap mode", ["Density","Quality"])
 
     # --- C) Fetch the raw pitches matching those filters ---
-    base = f"{SUPABASE_URL}/rest/v1/pitches"
+    base_url = f"{SUPABASE_URL}/rest/v1/pitches"
     params = [
         # select everything plus our two extra fields
         ("select", "*,pitch_score,plate_loc_side_inches,plate_loc_height_inches"),
