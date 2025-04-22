@@ -132,7 +132,8 @@ if page == "➕ Upload New Session":
             json=payload
         )
         if resp.status_code not in (200,201):
-            st.error("⚠️ Failed to save pitches:", resp.text)
+            st.error(f"⚠️ Failed to save pitches: {resp.text}")
+
         else:
             st.success("✅ Stored pitches to database!")
 
