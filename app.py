@@ -217,10 +217,12 @@ elif page == "📖 View Past Sessions":
 elif page == "📈 Historical Trends":
     st.title("📈 Player Dashboard")
 
-    # 1) Fetch every raw pitch
+    # 1) Fetch every raw pitch (up to 20k rows)
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/pitches?select=pitcher_name,session_date,pitch_score,"
-        "plate_loc_side_inches,plate_loc_height_inches,tagged_pitch_type",
+        f"{SUPABASE_URL}/rest/v1/pitches"
+        "?select=pitcher_name,session_date,pitch_score,"
+        "plate_loc_side_inches,plate_loc_height_inches,tagged_pitch_type"
+        "&limit=20000",
         headers=headers
     )
     if resp.status_code != 200:
@@ -240,18 +242,17 @@ elif page == "📈 Historical Trends":
         .agg(ppp=lambda s: s.sum() / len(s))
         .reset_index()
     )
-    st.write("🔍 Total session‐dates:", len(sessions))
+    st.write("🔍 Total session‑dates:", len(sessions))
 
     # 4) Player + date selectors
     players = sorted(sessions['pitcher_name'].unique())
     st.write("🔍 Available players:", players[:10], "…")
     player = st.selectbox("🎯 Select Player", players)
-
     dmin, dmax = sessions['session_date'].min(), sessions['session_date'].max()
     start_date = st.date_input("📅 Start date", value=dmin, min_value=dmin, max_value=dmax)
     end_date   = st.date_input("📅 End date",   value=dmax, min_value=dmin, max_value=dmax)
 
-    # 5) Pitch‐type & heatmap mode
+    # 5) Pitch‑type & heatmap mode
     pitch_choices = ["All","FB","SI","CH","SPL","CB","NFB"]
     sel_types = st.multiselect("⚾ Pitch Types", pitch_choices, default=["All"])
     mode      = st.radio("🔥 Heatmap mode", ["Density","Quality"])
@@ -261,7 +262,7 @@ elif page == "📈 Historical Trends":
         (sessions['pitcher_name'] == player) &
         (sessions['session_date'].between(start_date, end_date))
     ].sort_values('session_date')
-    st.write(f"🔍 Session‐dates for {player} in range:", len(player_sess))
+    st.write(f"🔍 Session‑dates for {player} in range:", len(player_sess))
 
     # 7) Plot PPP trend
     from matplotlib.ticker import NullLocator
@@ -300,7 +301,6 @@ elif page == "📈 Historical Trends":
         else:
             regex = "|".join(type_map[t] for t in sel_types if t in type_map)
             mask &= df['tagged_pitch_type'].str.contains(regex, case=False, regex=True)
-
     filtered_pitches = df[mask]
     st.write(f"🔍 Pitches after all filters:", len(filtered_pitches))
     if filtered_pitches.empty:
@@ -332,6 +332,3 @@ elif page == "📈 Historical Trends":
         ax2.set_xlabel("Side (in)"); ax2.set_ylabel("Height (in)")
         ax2.set_title(f"{player} — Strike‑Zone HeatMap ({mode})")
         st.pyplot(fig2)
-
-
-
