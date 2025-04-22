@@ -157,11 +157,8 @@ if page == "➕ Upload New Session":
             .rename(columns={'Pitcher':'pitcher_name'})
         )
         summary['session_date'] = session_date
-
-        # 2) Convert numpy types → Python built‑ins
         summary = summary.applymap(lambda x: x.item() if isinstance(x, np.generic) else x)
 
-        # 3) Insert into pitcher_sessions
         resp2 = requests.post(
             f"{SUPABASE_URL}/rest/v1/pitcher_sessions",
             headers=headers,
