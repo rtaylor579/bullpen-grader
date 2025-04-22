@@ -261,16 +261,25 @@ elif page == "📈 Historical Trends":
     # 6) Plot PPP trend with evenly‑spaced dates and right‑of‑point labels
     col1, col2 = st.columns(2)
     with col1:
-        fig, ax = plt.subplots(figsize=(6,4))
-        for d, v in zip(player_sess['session_date'], player_sess['ppp']):
-            g = letter_grade(v)
-            ax.scatter(d, v, color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
-            ax.text(d, v + 0.02, g, ha='center')
-        ax.set_xticks(player_sess['session_date'])
-        fig.autofmt_xdate()
-        ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
-        ax.set_title(f"{player} — PPP Trend")
-        st.pyplot(fig)
+        fig, ax = plt.subplots(figsize=(6, 4))
+
+        # even x spacing
+        dates = player_sess['session_date'].astype(str).tolist()
+        x = np.arange(len(dates))
+        y = player_sess['ppp'].values
+
+        color_map = {"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}
+        for xi, yi in zip(x, y):
+            g = letter_grade(yi)
+            ax.scatter(xi, yi, color=color_map[g], s=100)
+            ax.annotate(
+                g,
+                xy=(xi, yi),
+                xytext=(5, 0),
+                textcoords='offset points',
+                ha='left',
+                va='center'
+            )
 
     # 7) Now filter the same raw df for the heatmap
     mask = (
