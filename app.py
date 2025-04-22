@@ -142,15 +142,17 @@ if page == "➕ Upload New Session":
         )
         if resp.status_code not in (200,201):
             st.error(f"⚠️ Failed to save pitches: {resp.text}")
-
         else:
             st.success("✅ Stored pitches to database!")
 
             # summarise & insert session row
-            summary = df_filtered.groupby('Pitcher')['PitchScore'].agg(
-                avg_score='mean',
-                ppp=lambda s: s.sum()/len(s)
-            ).reset_index().rename(columns={'Pitcher':'pitcher_name'})
+            summary = (
+                df_filtered
+                .groupby('Pitcher')['PitchScore'].
+                .agg(avg_score='mean', ppp=lambda s: s.sum()/len(s))
+                .reset_index()
+                .rename(columns={'Pitcher':'pitcher_name'})
+            )
             summary['session_date'] = session_date
 
             summary_payload = json.loads(summary.to_json(orient='records', date_format='iso'))
@@ -160,7 +162,7 @@ if page == "➕ Upload New Session":
                 json=summary_payload
             )
             if resp2.status_code not in (200,201):
-                st.error("⚠️ Failed to save session summary:", resp2.status_code, resp2.text)
+                st.error(f"⚠️ Failed to save session summary:" ({resp2.status_codea}): {resp2.text}")
             else:
                 st.success("✅ Session summary saved!")
 
