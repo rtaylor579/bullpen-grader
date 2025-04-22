@@ -265,7 +265,7 @@ elif page == "📈 Historical Trends":
             params.append(("tagged_pitch_type", f"ilike.*{regex}*"))
 
     # do the GET with params
-    p = requests.get(base, headers=headers, params=params)
+    p = requests.get(base_url, headers=headers, params=params)
     st.write("🔍 Pitches GET URL:", p.url)   # debug: see the fully encoded URL
     pitches = pd.DataFrame(p.json())
 
