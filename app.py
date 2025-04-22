@@ -259,7 +259,7 @@ elif page == "📈 Historical Trends":
     ].sort_values('session_date')
 
     # 6) Plot PPP trend with evenly‑spaced dates and right‑of‑point labels
-with col1:
+    with col1:
     # turn dates into strings and evenly spaced x‑positions
     dates = player_sess['session_date'].dt.strftime('%Y-%m-%d').tolist()
     xs   = list(range(len(dates)))
