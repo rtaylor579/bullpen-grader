@@ -259,37 +259,18 @@ elif page == "📈 Historical Trends":
     ].sort_values('session_date')
 
     # 6) Plot PPP trend with evenly‑spaced dates and right‑of‑point labels
+    col1, col2 = st.columns(2)
     with col1:
-    # turn dates into strings and evenly spaced x‑positions
-    dates = player_sess['session_date'].dt.strftime('%Y-%m-%d').tolist()
-    xs   = list(range(len(dates)))
-    ys   = player_sess['ppp'].tolist()
-
-    fig, ax = plt.subplots(figsize=(6,4))
-    for xi, yi in zip(xs, ys):
-        g = letter_grade(yi)
-        ax.scatter(
-            xi, yi,
-            color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g],
-            s=100
-        )
-        ax.annotate(
-            g,                      # the grade text
-            (xi, yi),               # at data point
-            xytext=(7, 0),          # shift 5 points right
-            textcoords='offset points',
-            ha='left',              # left‑align text (so it sits to the right)
-            va='center'             # vertical center
-        )
-
-    # evenly‑spaced ticks with rotated labels
-    ax.set_xticks(xs)
-    ax.set_xticklabels(dates, rotation=45, ha='right')
-
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Points Per Pitch")
-    ax.set_title(f"{player} — PPP Trend")
-    st.pyplot(fig)
+        fig, ax = plt.subplots(figsize=(6,4))
+        for d, v in zip(player_sess['session_date'], player_sess['ppp']):
+            g = letter_grade(v)
+            ax.scatter(d, v, color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
+            ax.text(d, v + 0.02, g, ha='center')
+        ax.set_xticks(player_sess['session_date'])
+        fig.autofmt_xdate()
+        ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
+        ax.set_title(f"{player} — PPP Trend")
+        st.pyplot(fig)
 
     # 7) Now filter the same raw df for the heatmap
     mask = (
