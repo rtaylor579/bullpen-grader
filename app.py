@@ -141,7 +141,7 @@ if resp.status_code not in (200, 201):
     st.dataframe(view_df[['Pitcher', 'TaggedPitchType', 'PlateLocHeightInches', 'PlateLocSideInches', 'IsFinish', 'PitchScore']])
 
     st.subheader("🎯 Strike Zone Plot")
-        if selected_pitcher == "All":
+    if selected_pitcher == "All":
             st.info("Select a specific pitcher to view their strike zone plot.")
         else:
             fig, ax = plt.subplots(figsize=(6, 8))
