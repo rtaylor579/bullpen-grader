@@ -112,7 +112,7 @@ if page == "➕ Upload New Session":
         df_filtered = df_filtered.dropna(
             subset=['PlateLocHeightInches','PlateLocSideInches']
        )
-       dropped = before_count - len(df_filtered)
+            dropped = before_count - len(df_filtered)
        if dropped > 0:
            st.warning(f"⚠️ Dropped {dropped} pitches with missing location data.")
 
