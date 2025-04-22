@@ -327,3 +327,4 @@ elif page == "📈 Historical Trends":
         ax2.set_title(f"{player} — Strike‑Zone HeatMap ({mode})")
         st.pyplot(fig2)
 
+
