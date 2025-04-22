@@ -215,6 +215,19 @@ elif page == "📖 View Past Sessions":
 
 # Historical Trends
 elif page == "📈 Historical Trends":
+    all_rows = requests.get(
+        f"{SUPABASE_URL}/rest/v1/pitches?select=pitcher_name,session_date",
+        headers=headers
+    ).json()
+    st.write("Raw pitch entries (first 5):", all_rows[:5])
+
+    import pandas as _pd
+    df_all = _pd.DataFrame(all_rows)
+    st.write("DataFrame sample:", df_all.head())
+
+    st.write("Unique pitcher_names:", sorted(df_all['pitcher_name'].unique())[:10], "...")
+    st.write("🔍 Unique session_dates:", sorted(df_all['session_date'].unique())[:10], "…")
+    
     st.title("📈 Player Dashboard")
     # ── DEBUG: show every pitch stored in the DB ──
     all_p = requests.get(
