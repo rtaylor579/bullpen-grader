@@ -231,18 +231,33 @@ elif page == "📈 Historical Trends":
     sel_types = st.multiselect("⚾ Pitch Types", pitch_choices, default=["All"])
     mode = st.radio("🔥 Heatmap mode", ["Density","Quality"])
 
-    # fetch raw pitches
-    flts = [f"pitcher_name=eq.{player}", f"session_date=gte.{start_date}", f"session_date=lte.{end_date}"]
-    type_map = {"FB":"^4S$","SI":"(Sinker|2S)","CH":"ChangeUp","SPL":"Splitter","CB":"Curve","NFB":None}
+    # --- C) Fetch the raw pitches matching those filters ---
+    base = f"{SUPABASE_URL}/rest/v1/pitches"
+    params = [
+        # select everything plus our two extra fields
+        ("select", "*,pitch_score,plate_loc_side_inches,plate_loc_height_inches"),
+        # exact match on player
+        ("pitcher_name", f"eq.{player}"),
+        # date range
+        ("session_date", f"gte.{start_date}"),
+        ("session_date", f"lte.{end_date}")
+    ]
+
+    # pitch‑type filter
     if "All" not in sel_types:
         if "NFB" in sel_types:
-            fb_re = "|".join([type_map["FB"],type_map["SI"]])
-            flts.append(f"not(tagged_pitch_type.ilike.*{fb_re}*)")
+            fb_re = "|".join([type_map["FB"], type_map["SI"]])
+            # supabase supports `not` prefix on filters
+            params.append(("tagged_pitch_type", f"not.ilike.*{fb_re}*"))
         else:
-            rex = "|".join(type_map[t] for t in sel_types)
-            flts.append(f"tagged_pitch_type.ilike.*{rex}*")
-    qstr = "&".join(flts)
-    p = requests.get(f"{SUPABASE_URL}/rest/v1/pitches?select=*,pitch_score,plate_loc_side_inches,plate_loc_height_inches&{qstr}", headers=headers)
+            regex = "|".join(type_map[t] for t in sel_types)
+            params.append(("tagged_pitch_type", f"ilike.*{regex}*"))
+
+    # do the GET with params
+    p = requests.get(base, headers=headers, params=params)
+    st.write("🔍 Pitches GET URL:", p.url)   # debug: see the fully encoded URL
+    pitches = pd.DataFrame(p.json())
+
     pitches = pd.DataFrame(p.json())
     if pitches.empty:
         st.warning("No pitches in that selection."); st.stop()
