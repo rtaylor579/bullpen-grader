@@ -157,11 +157,11 @@ if resp.status_code not in (200, 201):
 
             if score >= 3 and is_finish and (in_fb_buffer or in_nfb_buffer):
                     ax.plot(x, y, marker='s', color='green', markersize=14)
-                elif score == 0:
+            elif score == 0:
                     ax.text(x, y, "X", color='red' if is_fb else 'blue', fontsize=14, ha='center', va='center')
-                elif score == 1:
+            elif score == 1:
                     ax.plot(x, y, marker='o', color='red' if is_fb else 'blue', markersize=10, markerfacecolor='none')
-                elif score == 2:
+            elif score == 2:
                     ax.plot(x, y, marker='o', color='red' if is_fb else 'blue', markersize=14)
 
             ax.add_patch(plt.Rectangle((ZONE_SIDE_LEFT, ZONE_BOTTOM), ZONE_SIDE_RIGHT - ZONE_SIDE_LEFT, ZONE_TOP - ZONE_BOTTOM, edgecolor='black', fill=False, linewidth=2))
