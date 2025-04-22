@@ -213,17 +213,22 @@ elif page == "📈 Historical Trends":
         headers=headers
     )
     if r.status_code != 200:
-        st.error("Failed to load sessions"); st.stop()
+        st.error("Failed to load sessions")
+        st.stop()
     sessions = pd.DataFrame(r.json())
     sessions['session_date'] = pd.to_datetime(sessions['session_date']).dt.date
 
     if sessions.empty:
-        st.info("No sessions yet."); st.stop()
+        st.info("No sessions yet.")
+        st.stop()
 
     # --- B) Controls: player, date range, pitch types, heatmap mode
     player = st.selectbox("🎯 Select Player", sorted(sessions['pitcher_name'].unique()))
     dmin, dmax = sessions['session_date'].min(), sessions['session_date'].max()
-    start_date, end_date = st.date_input("📅 Date range", value=(dmin, dmax), min_value=dmin, max_value=dmax)
+    start_date, end_date = st.date_input(
+        "📅 Date range", value=(dmin, dmax),
+        min_value=dmin, max_value=dmax
+    )
 
     pitch_choices = ["All", "FB", "SI", "CH", "SPL", "CB", "NFB"]
     sel_types = st.multiselect("⚾ Pitch Types", pitch_choices, default=["All"])
@@ -231,23 +236,21 @@ elif page == "📈 Historical Trends":
 
     # --- C) Fetch the raw pitches matching those filters
     filters = [
-      f"pitcher_name=eq.{player}",
-      f"session_date=gte.{start_date}",
-      f"session_date=lte.{end_date}"
+        f"pitcher_name=eq.{player}",
+        f"session_date=gte.{start_date}",
+        f"session_date=lte.{end_date}"
     ]
-    # build pitch‑type filter
+    # build pitch-type filter
     type_map = {
-      "FB": r"^4S$",    # exact 4-seam
-      "SI": r"(Sinker|2S)",  
-      "CH": r"ChangeUp",
-      "SPL": r"Splitter",
-      "CB": r"Curve",
-      "NFB": None
+        "FB": r"^4S$",
+        "SI": r"(Sinker|2S)",
+        "CH": r"ChangeUp",
+        "SPL": r"Splitter",
+        "CB": r"Curve",
+        "NFB": None
     }
     if "All" not in sel_types:
-        # handle NFB separately
         if "NFB" in sel_types:
-            # any not matching FB|SI
             fb_re = "|".join([type_map["FB"], type_map["SI"]])
             filters.append(f"not(tagged_pitch_type.ilike.*{fb_re}*)")
         else:
@@ -256,38 +259,45 @@ elif page == "📈 Historical Trends":
 
     qstr = "&".join(filters)
     p = requests.get(
-        f"{SUPABASE_URL}/rest/v1/pitches?select=*,pitch_score,plate_loc_side_inches,plate_loc_height_inches&{qstr}",
+        f"{SUPABASE_URL}/rest/v1/pitches?"
+        f"select=*,pitch_score,plate_loc_side_inches,plate_loc_height_inches&{qstr}",
         headers=headers
     )
     pitches = pd.DataFrame(p.json())
 
-# ── DEBUG: see what actually came back ──
-st.write("🔍 Raw /pitches?… response:", p.url)
-st.write("🔍 Number of pitches fetched:", len(pitches))
-st.write("🔍 Sample rows:", pitches[['plate_loc_side_inches','plate_loc_height_inches','pitch_score']].head())
+    # ── DEBUG: see what actually came back ──
+    st.write("🔍 Raw /pitches?… URL:", p.url)
+    st.write("🔍 Number of pitches fetched:", len(pitches))
+    st.write("🔍 Sample rows:", pitches[['plate_loc_side_inches','plate_loc_height_inches','pitch_score']].head())
 
-if pitches.empty:
-    st.warning("No pitches in that selection."); st.stop()
-
+    if pitches.empty:
+        st.warning("No pitches in that selection.")
+        st.stop()
 
     # --- D) Layout & Plots
     col1, col2 = st.columns(2)
 
     # D1) PPP Trend with letter grades
     with col1:
-        player_sess = sessions[(sessions['pitcher_name']==player) &
-                               (sessions['session_date'].between(start_date, end_date))] \
-                       .sort_values('session_date')
+        player_sess = (
+            sessions[
+                (sessions['pitcher_name']==player) &
+                (sessions['session_date'].between(start_date, end_date))
+            ]
+            .sort_values('session_date')
+        )
         fig, ax = plt.subplots(figsize=(6,4))
         xs, ys = player_sess['session_date'], player_sess['ppp']
         def grade(p): return ("A" if p>.8 else "B" if p>.65 else "C" if p>.5 else "D" if p>.35 else "F")
         colors = {"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}
-        for d,pv in zip(xs, ys):
+        for d, pv in zip(xs, ys):
             g = grade(pv)
             ax.scatter(d, pv, color=colors[g], s=100)
             ax.text(d, pv+0.02, g, ha='center')
-        ax.set_xticks(xs); fig.autofmt_xdate()
-        ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
+        ax.set_xticks(xs)
+        fig.autofmt_xdate()
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Points Per Pitch")
         ax.set_title(f"{player} — PPP Trend")
         st.pyplot(fig)
 
@@ -296,15 +306,16 @@ if pitches.empty:
         fig2, ax2 = plt.subplots(figsize=(6,6))
         x = pitches['plate_loc_side_inches']
         y = pitches['plate_loc_height_inches']
-        if mode=="Density":
+        if mode == "Density":
             hb = ax2.hexbin(x, y, gridsize=20, mincnt=1)
             fig2.colorbar(hb, ax=ax2, label="Pitch count")
         else:
             hb = ax2.hexbin(
-              x, y,
-              C=pitches['pitch_score'],
-              reduce_C_function=np.mean,
-              gridsize=20, mincnt=1
+                x, y,
+                C=pitches['pitch_score'],
+                reduce_C_function=np.mean,
+                gridsize=20,
+                mincnt=1
             )
             fig2.colorbar(hb, ax=ax2, label="Avg PitchScore")
         ax2.add_patch(patches.Rectangle(
@@ -315,9 +326,11 @@ if pitches.empty:
         ))
         ax2.set_xlim(ZONE_SIDE_LEFT*1.2, ZONE_SIDE_RIGHT*1.2)
         ax2.set_ylim(NFB_BUFFER_BOTTOM*0.9, FB_BUFFER_TOP*1.05)
-        ax2.set_xlabel("Side (in)"); ax2.set_ylabel("Height (in)")
+        ax2.set_xlabel("Side (in)")
+        ax2.set_ylabel("Height (in)")
         ax2.set_title(f"{player} — Strike‑Zone HeatMap ({mode})")
         st.pyplot(fig2)
+
 
 
 
