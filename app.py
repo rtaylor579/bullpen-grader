@@ -222,6 +222,7 @@ elif page == "📈 Historical Trends":
         headers=headers
 
     st.write("🔍 All pitches in DB (name, date):", all_p.json())
+        
     r = requests.get(f"{SUPABASE_URL}/rest/v1/pitcher_sessions?select=session_date,pitcher_name,ppp", headers=headers)
 
     # ── DEBUG: inspect the raw response ──
