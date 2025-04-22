@@ -106,7 +106,7 @@ if page == "➕ Upload New Session":
         )
         df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
         df_filtered['PitchScore'] = df_filtered.apply(score_pitch, axis=1)
-        +   # ── DROP any pitches with missing location ──
+           # ── DROP any pitches with missing location ──
         before_count = len(df_filtered)
         df_filtered = df_filtered.dropna(
             subset=['PlateLocHeightInches','PlateLocSideInches']
