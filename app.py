@@ -227,24 +227,26 @@ elif page == "📈 Historical Trends":
         st.error("Failed to load pitches"); st.stop()
     all_json = resp.json()
     st.write("🔍 Total raw pitch rows fetched:", len(all_json))
-    st.write("🔍 Sample pitchers:", sorted({r['pitcher_name'] for r in all_json})[:10], "…")
 
     # 2) Load into DataFrame & parse dates
     df = pd.DataFrame(all_json)
     df['session_date'] = pd.to_datetime(df['session_date']).dt.date
     st.write("🔍 Date range in DB:", df['session_date'].min(), "to", df['session_date'].max())
 
-    # 3) Build session summaries on the fly
+    # 3) Build session summaries
     sessions = (
         df
         .groupby(['pitcher_name', 'session_date'])['pitch_score']
         .agg(ppp=lambda s: s.sum() / len(s))
         .reset_index()
     )
-    st.write("🔍 Total sessions:", len(sessions))
+    st.write("🔍 Total session‐dates:", len(sessions))
 
     # 4) Player + date selectors
-    player = st.selectbox("🎯 Select Player", sorted(sessions['pitcher_name'].unique()))
+    players = sorted(sessions['pitcher_name'].unique())
+    st.write("🔍 Available players:", players[:10], "…")
+    player = st.selectbox("🎯 Select Player", players)
+
     dmin, dmax = sessions['session_date'].min(), sessions['session_date'].max()
     start_date = st.date_input("📅 Start date", value=dmin, min_value=dmin, max_value=dmax)
     end_date   = st.date_input("📅 End date",   value=dmax, min_value=dmin, max_value=dmax)
@@ -259,9 +261,9 @@ elif page == "📈 Historical Trends":
         (sessions['pitcher_name'] == player) &
         (sessions['session_date'].between(start_date, end_date))
     ].sort_values('session_date')
-    st.write(f"🔍 Sessions for {player}: {len(player_sess)}")
+    st.write(f"🔍 Session‐dates for {player} in range:", len(player_sess))
 
-    # 7) Plot PPP trend with integer x‐axis
+    # 7) Plot PPP trend
     from matplotlib.ticker import NullLocator
     col1, col2 = st.columns(2)
     with col1:
@@ -298,22 +300,26 @@ elif page == "📈 Historical Trends":
         else:
             regex = "|".join(type_map[t] for t in sel_types if t in type_map)
             mask &= df['tagged_pitch_type'].str.contains(regex, case=False, regex=True)
-    pitches = df[mask]
-    st.write(f"🔍 Pitches after filter: {len(pitches)}")
-    if pitches.empty:
+
+    filtered_pitches = df[mask]
+    st.write(f"🔍 Pitches after all filters:", len(filtered_pitches))
+    if filtered_pitches.empty:
         st.warning("No pitches in that selection."); st.stop()
 
     # 9) Draw the hex‑bin heatmap
     with col2:
         fig2, ax2 = plt.subplots(figsize=(6,6))
-        x, y = pitches['plate_loc_side_inches'], pitches['plate_loc_height_inches']
+        x, y = filtered_pitches['plate_loc_side_inches'], filtered_pitches['plate_loc_height_inches']
         if mode == "Density":
             hb = ax2.hexbin(x, y, gridsize=20, mincnt=1)
             fig2.colorbar(hb, ax=ax2, label="Count")
         else:
-            hb = ax2.hexbin(x, y, C=pitches['pitch_score'],
-                            reduce_C_function=np.mean,
-                            gridsize=20, mincnt=1)
+            hb = ax2.hexbin(
+                x, y,
+                C=filtered_pitches['pitch_score'],
+                reduce_C_function=np.mean,
+                gridsize=20, mincnt=1
+            )
             fig2.colorbar(hb, ax=ax2, label="Avg PitchScore")
         ax2.add_patch(patches.Rectangle(
             (ZONE_SIDE_LEFT, ZONE_BOTTOM),
@@ -326,5 +332,6 @@ elif page == "📈 Historical Trends":
         ax2.set_xlabel("Side (in)"); ax2.set_ylabel("Height (in)")
         ax2.set_title(f"{player} — Strike‑Zone HeatMap ({mode})")
         st.pyplot(fig2)
+
 
 
