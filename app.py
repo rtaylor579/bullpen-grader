@@ -260,8 +260,15 @@ elif page == "📈 Historical Trends":
         headers=headers
     )
     pitches = pd.DataFrame(p.json())
-    if pitches.empty:
-        st.warning("No pitches in that selection."); st.stop()
+
+# ── DEBUG: see what actually came back ──
+st.write("🔍 Raw /pitches?… response:", p.url)
+st.write("🔍 Number of pitches fetched:", len(pitches))
+st.write("🔍 Sample rows:", pitches[['plate_loc_side_inches','plate_loc_height_inches','pitch_score']].head())
+
+if pitches.empty:
+    st.warning("No pitches in that selection."); st.stop()
+
 
     # --- D) Layout & Plots
     col1, col2 = st.columns(2)
