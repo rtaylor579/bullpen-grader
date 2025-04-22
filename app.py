@@ -238,15 +238,18 @@ elif page == "📈 Historical Trends":
         .reset_index()
     )
 
-    # 3) Player + date controls
+    # 3) Player + separate date controls
     player = st.selectbox("🎯 Select Player", sorted(sessions['pitcher_name'].unique()))
     dmin, dmax = sessions['session_date'].min(), sessions['session_date'].max()
-    start_date, end_date = st.date_input(
-        "📅 Date range",
-        value=(dmin, dmax),
-        min_value=dmin, max_value=dmax
+    
+    start_date = st.date_input(
+        "📅 Start date",
+        value=dmin, min_value=dmin, max_value=dmax
     )
-
+    end_date = st.date_input(
+        "📅 End date",
+        value=dmax, min_value=dmin, max_value=dmax
+    )
     # 4) Pitch‑type & mode controls
     pitch_choices = ["All","FB","SI","CH","SPL","CB","NFB"]
     sel_types    = st.multiselect("⚾ Pitch Types", pitch_choices, default=["All"])
@@ -262,13 +265,22 @@ elif page == "📈 Historical Trends":
     col1, col2 = st.columns(2)
     with col1:
         fig, ax = plt.subplots(figsize=(6,4))
-        for d, v in zip(player_sess['session_date'], player_sess['ppp']):
+        dates = player_sess['session_date'].dt.strftime("%Y-%m-%d").tolist()
+        xs = list(range(len(dates)))
+        ys = player_sess['ppp'].tolist()
+
+        for i, v in zip(xs, ys):
             g = letter_grade(v)
-            ax.scatter(d, v, color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
-            ax.text(d, v + 0.02, g, ha='center')
-        ax.set_xticks(player_sess['session_date'])
-        fig.autofmt_xdate()
-        ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
+            ax.scatter(i, v, color=… , s=100)
+            ax.text(i + 0.05, v + 0.005, g, ha='left', va='center')
+        
+        ax.set_xticks(xs)
+        ax.set_xticklabels(dates, rotation=45, ha='right')
+        ax.xaxis.set_minor_locator(plt.NullLocator())
+        ax.minorticks_off()
+        
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Points Per Pitch")
         ax.set_title(f"{player} — PPP Trend")
         st.pyplot(fig)
 
