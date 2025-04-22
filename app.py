@@ -148,8 +148,8 @@ if page == "➕ Upload New Session":
             # summarise & insert session row
             summary = (
                 df_filtered
-                .groupby('Pitcher')['PitchScore'].
-                .agg(avg_score='mean', ppp=lambda s: s.sum()/len(s))
+                .groupby('Pitcher')['PitchScore']
+                .agg(avg_score='mean', ppp=lambda s: s.sum() / len(s))
                 .reset_index()
                 .rename(columns={'Pitcher':'pitcher_name'})
             )
@@ -162,7 +162,7 @@ if page == "➕ Upload New Session":
                 json=summary_payload
             )
             if resp2.status_code not in (200,201):
-                st.error(f"⚠️ Failed to save session summary:" ({resp2.status_codea}): {resp2.text}")
+                st.error(f"⚠️ Failed to save session summary ({resp2.status_code}): {resp2.text}")
             else:
                 st.success("✅ Session summary saved!")
 
