@@ -142,6 +142,37 @@ if page == "➕ Upload New Session":
         else:
             st.success("✅ Stored pitches to database!")
 
+
+            # ── AFTER inserting raw pitches, summarize and insert session row ──
+
+        # 1) Build a summary per pitcher
+        summary = (
+            df_filtered
+            .groupby('Pitcher')['PitchScore']
+            .agg([
+                ('avg_score', 'mean'),
+                ('ppp', lambda s: s.sum() / len(s))
+            ])
+            .reset_index()
+            .rename(columns={'Pitcher':'pitcher_name'})
+        )
+        summary['session_date'] = session_date
+
+        # 2) Convert numpy types → Python built‑ins
+        summary = summary.applymap(lambda x: x.item() if isinstance(x, np.generic) else x)
+
+        # 3) Insert into pitcher_sessions
+        resp2 = requests.post(
+            f"{SUPABASE_URL}/rest/v1/pitcher_sessions",
+            headers=headers,
+            json=summary.to_dict(orient='records')
+        )
+        if resp2.status_code not in (200,201):
+            st.error("⚠️ Failed to save session summary:", resp2.status_code, resp2.text)
+        else:
+            st.success("✅ Session summary saved!")
+
+
         # show raw pitch table & zone plot
         sel = st.selectbox(
             "🎯 Filter by pitcher",
