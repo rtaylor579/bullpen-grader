@@ -217,14 +217,15 @@ elif page == "📖 View Past Sessions":
 elif page == "📈 Historical Trends":
     st.title("📈 Player Dashboard")
 
-    # 1) Fetch every raw pitch (up to 20k rows)
-    resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/pitches"
-        "?select=pitcher_name,session_date,pitch_score,"
-        "plate_loc_side_inches,plate_loc_height_inches,tagged_pitch_type"
-        "&limit=20000",
-        headers=headers
-    )
+     # 1) Fetch *all* raw pitches (override default 1 000‑row page)
+     url = f"{SUPABASE_URL}/rest/v1/pitches"
+     params = {
+         "select": "pitcher_name,session_date,pitch_score,plate_loc_side_inches,plate_loc_height_inches,tagged_pitch_type",
+         "limit": 20000
+     }
+     # Supabase paginates at 1 000 rows by default — this Range header forces up to 20 000
+     range_header = {**headers, "Range": "0-20000"}
+     resp = requests.get(url, headers=range_header, params=params)
     if resp.status_code != 200:
         st.error("Failed to load pitches"); st.stop()
     all_json = resp.json()
