@@ -218,30 +218,25 @@ elif page == "📈 Historical Trends":
 
     # 1) Load *all* raw pitches and parse dates
     resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/pitches?"
-        "select=pitcher_name,session_date,pitch_score,"
+        f"{SUPABASE_URL}/rest/v1/pitches?select=pitcher_name,session_date,pitch_score,"
         "plate_loc_side_inches,plate_loc_height_inches",
         headers=headers
     )
     if resp.status_code != 200:
-        st.error("Failed to load pitches"); st.stop()
-
+        st.error("Failed to load raw pitches"); st.stop()
     df = pd.DataFrame(resp.json())
     if df.empty:
         st.info("No sessions yet. Upload a CSV first!"); st.stop()
 
     df['session_date'] = pd.to_datetime(df['session_date']).dt.date
 
-    # 2) Build session summaries on the fly (PPP per date/player)
+    # 2) Build session summaries on the fly
     sessions = (
         df
         .groupby(['pitcher_name', 'session_date'])['pitch_score']
         .agg(ppp=lambda s: s.sum() / len(s))
         .reset_index()
     )
-
-    # DEBUG: see how many sessions we have
-    st.write(f"🔍 Total session‑dates: {len(sessions)}")
 
     # 3) Player + date controls
     player = st.selectbox("🎯 Select Player", sorted(sessions['pitcher_name'].unique()))
@@ -263,37 +258,19 @@ elif page == "📈 Historical Trends":
         (sessions['session_date'].between(start_date, end_date))
     ].sort_values('session_date')
 
-    # 6) Plot PPP trend as a categorical (numeric) x-axis
+    # 6) Plot PPP trend
     col1, col2 = st.columns(2)
     with col1:
         fig, ax = plt.subplots(figsize=(6,4))
-
-        # Numeric x coords, one per session
-        xs = list(range(len(player_sess)))
-        ys = player_sess['ppp'].tolist()
-        dates = [d.strftime("%Y-%m-%d") for d in player_sess['session_date']]
-
-        # Scatter + letter annotations
-        for i, v in zip(xs, ys):
+        for d, v in zip(player_sess['session_date'], player_sess['ppp']):
             g = letter_grade(v)
-            ax.scatter(i, v, color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
-            ax.text(i + 0.05, v + 0.005, g, ha='left', va='center')
-
-        # Custom ticks & labels
-        ax.set_xticks(xs)
-        ax.set_xticklabels(dates, rotation=45, ha='right')
-
-        # Disable any minor ticks
-        ax.xaxis.set_minor_locator(plt.NullLocator())
-        ax.minorticks_off()
-
-        ax.set_xlabel("Date")
-        ax.set_ylabel("Points Per Pitch")
+            ax.scatter(d, v, color={"A":"green","B":"blue","C":"orange","D":"purple","F":"red"}[g], s=100)
+            ax.text(d, v + 0.02, g, ha='center')
+        ax.set_xticks(player_sess['session_date'])
+        fig.autofmt_xdate()
+        ax.set_xlabel("Date"); ax.set_ylabel("Points Per Pitch")
         ax.set_title(f"{player} — PPP Trend")
         st.pyplot(fig)
-
-
-
 
     # 7) Now filter the same raw df for the heatmap
     mask = (
