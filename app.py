@@ -91,7 +91,6 @@ if page == "➕ Upload New Session":
     st.markdown("Upload your bullpen CSV to grade and visualize pitch effectiveness. Finish pitches are detected from the 'Flag' column.")
 
     uploaded_file = st.file_uploader("Upload your bullpen session CSV", type=["csv"], key="upload_new_session_file")
-
     if uploaded_file:
         # ── Read CSV and extract date ──
         df = pd.read_csv(uploaded_file)
@@ -109,21 +108,27 @@ if page == "➕ Upload New Session":
         df_filtered['IsFinish'] = df_filtered['Flag'].astype(str).str.upper() == 'Y'
         df_filtered['PitchScore'] = df_filtered.apply(score_pitch, axis=1)
 
-        # ── BULK INSERT PITCHES INTO Supabase ──
+         # ── BULK INSERT PITCHES INTO Supabase ──
         records = (
             df_filtered
             .rename(columns={
-                'Pitcher': 'pitcher_name',
-                'TaggedPitchType': 'tagged_pitch_type',
-                'PlateLocHeightInches': 'plate_loc_height_inches',
-                'PlateLocSideInches':  'plate_loc_side_inches',
-                'IsFastball': 'is_fastball',
-                'IsFinish':   'is_finish',
-                'PitchScore': 'pitch_score'
+                'Pitcher':               'pitcher_name',
+                'TaggedPitchType':       'tagged_pitch_type',
+                'PlateLocHeightInches':  'plate_loc_height_inches',
+                'PlateLocSideInches':    'plate_loc_side_inches',
+                'IsFastball':            'is_fastball',
+                'IsFinish':              'is_finish',
+                'PitchScore':            'pitch_score'
             })[
-                ['pitcher_name','tagged_pitch_type',
-                 'plate_loc_height_inches','plate_loc_side_inches',
-                 'is_fastball','is_finish','pitch_score']
+                [
+                    'pitcher_name',
+                    'tagged_pitch_type',
+                    'plate_loc_height_inches',
+                    'plate_loc_side_inches',
+                    'is_fastball',
+                    'is_finish',
+                    'pitch_score'
+                ]
             ]
         )
         records['session_date'] = session_date
@@ -135,6 +140,7 @@ if page == "➕ Upload New Session":
         )
         if resp.status_code not in (200, 201):
             st.error("⚠️ Failed to save pitches:", resp.text)
+
 
         # ── UI: Filter and DataFrame ──
         selected_pitcher = st.selectbox(
